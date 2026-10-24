@@ -1,5 +1,6 @@
 import type { Section, ViewState } from "@/lib/contracts";
 import { appHref } from "./api";
+import { SECTIONS, DEEP_LINK_LIMITS, type PersistedFocus } from "../reader-policy";
 
 /**
  * Reader deep links. Parameter names avoid the legacy root query words
@@ -22,7 +23,6 @@ export interface LocationState {
   dialog: { kind: string; feedId: number; groupId: number } | null;
 }
 
-const SECTIONS: Section[] = ["hot", "kindling", "saved", "sparks", "search"];
 const SCREENS: MobileScreen[] = ["groups", "feeds", "items", "article", "hot"];
 
 function int(value: string | null, min = 0, max = Number.MAX_SAFE_INTEGER): number | undefined {
@@ -40,20 +40,20 @@ export function parseLocation(search: string): LocationState {
   const params = new URLSearchParams(search);
   const view: Partial<ViewState> = {};
   const section = params.get("section");
-  if (section && (SECTIONS as string[]).includes(section)) view.section = section as Section;
+  if (section && (SECTIONS as readonly string[]).includes(section)) view.section = section as Section;
   const group = int(params.get("group"));
   if (group !== undefined) view.groupId = group;
   const feed = int(params.get("feed"));
   if (feed !== undefined) view.feedId = feed;
   const q = params.get("search");
-  if (q !== null) view.search = q.slice(0, 1000);
+  if (q !== null) view.search = q.slice(0, DEEP_LINK_LIMITS.search);
   const showRead = flag(params.get("showRead"));
   if (showRead !== undefined) view.showRead = showRead;
   const showFeeds = flag(params.get("showFeeds"));
   if (showFeeds !== undefined) view.showFeeds = showFeeds;
-  const hotStart = int(params.get("hotStart"), 0, 3650);
+  const hotStart = int(params.get("hotStart"), 0, DEEP_LINK_LIMITS.hotStart);
   if (hotStart !== undefined) view.hotStart = hotStart;
-  const hotRange = int(params.get("hotRange"), 1, 366);
+  const hotRange = int(params.get("hotRange"), 1, DEEP_LINK_LIMITS.hotRange);
   if (hotRange !== undefined) view.hotRange = hotRange;
   const compactParam = params.has("mobile") ? true : flag(params.get("compact"));
   const screen = params.get("screen");
@@ -111,8 +111,8 @@ export function readerQueryString(view: ViewState, page = 1, cursor?: string | n
 }
 
 /** View-state focus values accepted by the server (lib/domain/options.ts viewPatch). */
-export function normalizeFocus(focus: string): "groups" | "feeds" | "items" | "links" | "article" {
-  if (focus === "groups" || focus === "feeds" || focus === "article") return focus;
+export function normalizeFocus(focus: string): PersistedFocus {
+  if (focus === "groups" || focus === "feeds" || focus === "article" || focus === "items" || focus === "links") return focus;
   if (focus.startsWith("link-")) return "links";
   if (focus.startsWith("item-")) return "items";
   return "groups";
