@@ -1,37 +1,17 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { command } from "@/lib/client/api";
 import {
-  Button, ErrorBanner, Footer, Frame, RadioGroup, Row, StatusBanner, numberResult, plural, useAction, usePanel,
+  Button, ErrorBanner, Footer, Frame, RadioGroup, Row, StatusBanner, plural, useAction, usePanel,
 } from "./shared";
 
-type RuleKind = "exact" | "domain" | "regex";
-interface ParsedRule { index: number; raw: string; kind: RuleKind; problem: string | null; }
+import { BLACKLIST_LIMITS, tokenizeBlacklist, ruleProblem, utf8Bytes, type RuleKind } from "@/lib/blacklist-rules";
 
-const RULE_LIMIT = 512;
-
-/**
- * Fever splits rules on any whitespace, not only line breaks. A rule starting
- * with # is a case-insensitive regular expression (every # is removed),
- * `domain:` is an explicit host rule, and anything else is an exact URL.
- */
-export function parseRules(raw: string): ParsedRule[] {
-  return raw.split(/[\t\n\r\f\v ]+/).filter((token) => token !== "" && token !== "0").map((raw, index) => {
-    const kind: RuleKind = raw.startsWith("#") ? "regex" : raw.startsWith("domain:") ? "domain" : "exact";
-    let problem: string | null = null;
-    if (kind === "regex") {
-      try { new RegExp(raw.replace(/#/g, ""), "i"); } catch { problem = "This regular expression is not valid."; }
-      if (/\(\?[<=!]|\\[1-9]/.test(raw)) problem = "Look-around and back-references are not supported; Fever keeps the rule but does not use it.";
-    } else if (kind === "domain") {
-      const domain = raw.slice(7).toLowerCase().replace(/\.$/, "");
-      if (!domain || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(domain) || domain.includes("..")) {
-        problem = "Use a host name only, such as domain:example.com, with no scheme, path or port.";
-      }
-    }
-    return { index, raw, kind, problem };
-  });
+export function parseRules(raw: string) {
+  return tokenizeBlacklist(raw).map(rule => ({ ...rule, index: rule.position, problem: ruleProblem(rule) }));
 }
+const RULE_LIMIT = BLACKLIST_LIMITS.rules;
 
 /** Host of a link for a `domain:` rule, ignoring a leading www. */
 function hostOf(value: string): string | null {
@@ -50,6 +30,7 @@ export function BlacklistEditor({ initialRules, link }: { initialRules: string; 
   const action = useAction();
   const id = useId();
   const [rules, setRules] = useState(initialRules);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const [entry, setEntry] = useState(link ?? "");
   const [kind, setKind] = useState<RuleKind>("exact");
   const [entryError, setEntryError] = useState<string | null>(null);
@@ -69,7 +50,6 @@ export function BlacklistEditor({ initialRules, link }: { initialRules: string; 
     }
     if (kind === "regex") {
       const pattern = value.replace(/^#|#$/g, "");
-      try { new RegExp(pattern, "i"); } catch { setEntryError("This regular expression is not valid."); return null; }
       return `#${pattern}#`;
     }
     return value;
@@ -90,10 +70,6 @@ export function BlacklistEditor({ initialRules, link }: { initialRules: string; 
 
   const submit = async () => {
     setResult(null);
-    if (parsed.length > RULE_LIMIT) {
-      action.setError({ message: `The blacklist can hold at most ${RULE_LIMIT} rules.`, fields: { rules: `Remove ${parsed.length - RULE_LIMIT} rules.` } });
-      return;
-    }
     let text = rules.trim();
     // A pending entry the user typed but did not add would otherwise be lost.
     if (entry.trim()) {
@@ -101,17 +77,21 @@ export function BlacklistEditor({ initialRules, link }: { initialRules: string; 
       if (!rule) return;
       if (!parsed.some((existing) => existing.raw === rule)) text = text ? `${text}\n${rule}` : rule;
     }
+    const finalRules = parseRules(text);
+    if (utf8Bytes(text) > BLACKLIST_LIMITS.bytes || finalRules.length > RULE_LIMIT) {
+      action.setError({ message: "The blacklist exceeds its size or rule limit.", fields: { rules: `Use at most ${RULE_LIMIT} rules and 64 KiB.` } });
+      textarea.current?.focus();
+      return;
+    }
     const outcome = await action.run(() => command("blacklist.save", { rules: text }));
-    if (!outcome.ok) return;
+    if (!outcome.ok) { textarea.current?.focus(); return; }
     setRules(text);
     setEntry("");
-    const ruleCount = numberResult(outcome.value, "ruleCount") ?? parseRules(text).length;
-    const matched = numberResult(outcome.value, "matched");
-    const scanned = numberResult(outcome.value, "scanned");
+    const { ruleCount, matched, scanned } = outcome.value;
     await panel.changed();
     setResult(
       `${plural(ruleCount, "rule")} saved.` +
-      (matched !== undefined && scanned !== undefined ? ` ${plural(matched, "link")} out of ${scanned.toLocaleString()} ${matched === 1 ? "is" : "are"} now kept out of Hot.` : " Hot has been filtered again."),
+      ` ${plural(matched, "link")} out of ${scanned.toLocaleString()} ${matched === 1 ? "is" : "are"} now kept out of Hot.`,
     );
   };
 
@@ -146,25 +126,26 @@ export function BlacklistEditor({ initialRules, link }: { initialRules: string; 
       <Row label="Rules" htmlFor={`${id}-rules`} errorId={`${id}-rules-error`}
         error={action.error?.fields.rules}
         hint={<>Put each exact link or regular expression on its own line. Spaces also separate rules. Regular expressions use <code>#</code> as the delimiter and ignore case; <code>domain:example.com</code> blocks a whole site.</>}>
-        <textarea id={`${id}-rules`} className="fm-input fm-textarea" rows={8} spellCheck={false} value={rules}
+        <textarea ref={textarea} id={`${id}-rules`} className="fm-input fm-textarea" rows={8} spellCheck={false} value={rules}
           aria-invalid={action.error?.fields.rules ? true : undefined}
           aria-describedby={action.error?.fields.rules ? `${id}-rules-error` : undefined}
           onChange={(event) => setRules(event.currentTarget.value)} />
       </Row>
 
+          <p className="fm-muted" aria-live="polite">
+            {utf8Bytes(rules).toLocaleString()} / {BLACKLIST_LIMITS.bytes.toLocaleString()} bytes; {plural(parsed.length, "rule")}{problems.length ? `, ${plural(problems.length, "needs", "need")} attention` : ""}{changed ? " (not saved yet)" : ""}
+          </p>
+
       {parsed.length === 0 ? (
         <p className="fm-empty">The blacklist is empty. Every link can heat up in Hot.</p>
       ) : (
         <div className="fm-rules">
-          <p className="fm-muted" aria-live="polite">
-            {plural(parsed.length, "rule")}{problems.length ? `, ${plural(problems.length, "needs", "need")} attention` : ""}{changed ? " (not saved yet)" : ""}
-          </p>
           <ul className="fm-rule-list">
             {parsed.map((rule) => (
-              <li key={`${rule.index}-${rule.raw}`} className={rule.problem ? "fm-rule-problem" : undefined}>
+              <li key={`${rule.index}-${rule.raw}`} className={rule.problem || action.error?.fields[`rules.${rule.index}`] ? "fm-rule-problem" : undefined}>
                 <span className="fm-tag">{KIND_LABEL[rule.kind]}</span>
                 <code className="fm-break">{rule.raw}</code>
-                {rule.problem && <span className="fm-rule-issue">{rule.problem}</span>}
+                {(rule.problem || action.error?.fields[`rules.${rule.index}`]) && <span className="fm-rule-issue">{rule.problem || action.error?.fields[`rules.${rule.index}`]}</span>}
                 <button type="button" className="fm-link fm-danger-text" onClick={() => removeRule(rule.index)}>
                   Remove<span className="fm-visually-hidden"> rule {rule.raw}</span>
                 </button>
