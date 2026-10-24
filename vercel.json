@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": [
+    "pdx1"
+  ],
+  "buildCommand": "node --version && pnpm run build",
+  "crons": [
+    {
+      "path": "/api/internal/refresh",
+      "schedule": "* * * * *"
+    }
+  ]
+}
