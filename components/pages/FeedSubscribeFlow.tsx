@@ -1,9 +1,11 @@
 "use client";
+import { feedletFeedInput } from "../forms/feed-draft";
+import { useReaderData } from "@/lib/client/useReaderData";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import type { FeedCandidate, FeedInput, ReaderView } from "@/lib/contracts";
-import { apiGet, apiPost, appHref } from "@/lib/client/api";
-import { describeError, isSessionError, type DescribedError } from "./api-errors";
+import type { FeedCandidate, FeedInput } from "@/lib/contracts";
+import { apiPost, appHref } from "@/lib/client/api";
+import { describeError, isSessionError, type DescribedError } from "@/lib/client/errors";
 import {
   comparisonKey, displayUrl, fromServer, fromSupplied, groupCandidates,
   type CandidateGroup, type SuppliedFeed,
@@ -38,8 +40,7 @@ type Discovery =
  */
 export function FeedSubscribeFlow({ mode, initialUrl, pageTitle = "", supplied = [], rejected = 0, onHeading }: FeedSubscribeFlowProps) {
   const id = useId();
-  const [view, setView] = useState<ReaderView | null>(null);
-  const [viewError, setViewError] = useState<DescribedError | null>(null);
+  const { view, error: viewError, reload: loadView } = useReaderData();
   // Server discovery is the fallback when the bookmarklet found nothing
   // (old "simple" Feedlet links and subscription URLs supply none).
   const autoDiscoverUrl = initialUrl && supplied.length === 0 ? initialUrl : null;
@@ -63,13 +64,6 @@ export function FeedSubscribeFlow({ mode, initialUrl, pageTitle = "", supplied =
   const discoveryController = useRef<AbortController | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-
-  const fetchView = useCallback(() => {
-    // No query: read the current view without changing the reader's navigation.
-    apiGet<ReaderView>("/api/reader?capture=false").then(setView, (error: unknown) => setViewError(describeError(error, "Your groups and subscriptions could not be loaded.")));
-  }, []);
-  useEffect(fetchView, [fetchView]);
-  const loadView = () => { setViewError(null); fetchView(); };
 
   // Replaces any earlier discovery; only the latest one may set state, and only once it settles.
   const requestDiscovery = useCallback((url: string) => {
@@ -165,19 +159,7 @@ export function FeedSubscribeFlow({ mode, initialUrl, pageTitle = "", supplied =
     const feeds: FeedInput[] = selectedGroups.map((group) => {
       const chosen = optionsFor(group);
       const variant = group.variants[chosen.variantIndex] ?? group.variants[group.defaultIndex];
-      const input: FeedInput = {
-        url: variant.url,
-        groupIds: chosen.groupIds,
-        isSpark: chosen.isSpark,
-        preventsHotlinking: chosen.preventsHotlinking,
-        sortOrder: chosen.sortOrder,
-        itemAllows: chosen.itemAllows,
-        itemExcerpts: chosen.itemExcerpts,
-        unreadCounts: chosen.unreadCounts,
-      };
-      if (chosen.title.trim()) input.title = chosen.title.trim();
-      if (chosen.username) { input.username = chosen.username; input.password = chosen.password; }
-      return input;
+      return feedletFeedInput(variant.url, chosen);
     });
     setSubmitting(true);
     try {
