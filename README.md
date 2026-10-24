@@ -1,6 +1,6 @@
 # Fever
 
-## Overview
+![Original Fever website recreated in HTML, CSS and JavaScript](docs/screenshots/2026-10-24/website.png)
 
 Shaun Inman released [Fever](https://chrishubbs.com/2009/06/17/a-first-look-at-shaun/) in 2009 as a feed reader you installed on your own PHP and MySQL server. It counted what the writers you follow linked to, and when several of your feeds pointed at the same page, that page rose to the top. Inman [retired Fever in 2016](https://web.archive.org/web/20161226201905/http://www.shauninman.com/archive/2016/12/24/goodbye_mint_goodbye_fever).
 
