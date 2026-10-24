@@ -1,0 +1,14 @@
+# Runtime secrets are configured through Vercel, never uploaded from this checkout.
+.env
+.env.*
+!.env.example
+node_modules
+.next
+coverage
+*.tsbuildinfo
+*.db
+*.sqlite
+*.sqlite3
+# Tests and documentation are repository material, not deployment inputs.
+tests
+docs
