@@ -1,4 +1,4 @@
-import { createDefaultPreferences, createDefaultViewState } from "../config";
+import { createDefaultPreferences, createDefaultViewState } from "../reader-policy";
 import { bytes, MappingError, text, uint, type MappedRow } from "./transform";
 import { utf8 } from "./php";
 import type { SnapshotRow } from "./types";
