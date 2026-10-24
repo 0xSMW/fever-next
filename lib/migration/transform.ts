@@ -1,5 +1,5 @@
 import type { Preferences, Section, ViewState } from "../contracts";
-import { createDefaultPreferences, createDefaultViewState } from "../config";
+import { createDefaultPreferences, createDefaultViewState } from "../reader-policy";
 import { decodePhp, phpObject, strictBase64, utf8, type PhpValue } from "./php";
 import type { Cell, SnapshotRow } from "./types";
 
