@@ -1,12 +1,14 @@
 "use client";
+import { INHERIT_ALL, displayFrom, globalDisplay, type DisplayValues, DisplayOverrides } from "../forms/DisplayOverrides";
 
 import { useMemo, useState } from "react";
 import { ApiRequestError, command } from "@/lib/client/api";
 import type { FeedDTO, GroupDTO, ReaderView } from "@/lib/contracts";
+import { TabPanel, type TabSpec } from "../forms/Tabs";
 import {
-  Checkbox, DisplayOverrides, EmptyState, ErrorBanner, Footer, Frame, INHERIT_ALL, MultiSelect, StatusBanner,
-  TabPanel, TextField, byTitle, displayFrom, feedTitle, fieldError, globalDisplay, localError, numberResult, plural,
-  useAction, usePanel, type DisplayValues, type FormError, type TabSpec,
+  Checkbox, EmptyState, ErrorBanner, Footer, Frame, MultiSelect, StatusBanner,
+  TextField, byTitle, feedTitle, fieldError, localError, plural,
+  useAction, usePanel, type FormError,
 } from "./shared";
 
 type GroupTab = "group" | "display";
@@ -52,11 +54,11 @@ export function GroupEditor({ mode, group, view }: { mode: "add" | "edit"; group
     const invalid = localError(fields);
     if (invalid) { action.setError(invalid); setTab("group"); return; }
 
-    const payload: Record<string, unknown> = { title: name, feedIds, ...display };
-    if (mode === "edit" && group) payload.id = group.id;
+    const payload = { title: name, feedIds, ...display };
     const result = await action.run(async () => {
-      const response = await command(mode === "add" ? "group.create" : "group.update", payload);
-      if (mode === "add" && response.created === false) {
+      if (mode === "edit" && group) return command("group.update", { ...payload, id: group.id });
+      const response = await command("group.create", payload);
+      if (response.created === false) {
         const message = `A group named “${name}” already exists.`;
         throw new ApiRequestError(message, 409, "DUPLICATE_GROUP", { title: message });
       }
@@ -68,7 +70,7 @@ export function GroupEditor({ mode, group, view }: { mode: "add" | "edit"; group
       return;
     }
     await panel.changed();
-    const groupId = mode === "add" ? numberResult(result.value, "id") : undefined;
+    const groupId = mode === "add" ? result.value.id : undefined;
     // The reader listens for this and selects the new group.
     if (groupId !== undefined) window.dispatchEvent(new CustomEvent("fever:select-group", { detail: { groupId } }));
     panel.close();
