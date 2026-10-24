@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "migrations": [
+    {
+      "version": 1,
+      "file": "0000_initial.sql",
+      "sha256": "36f21f4640973d69d104f8ae8797154d65e7bd2cc51403324fb493e7c5b06542"
+    },
+    {
+      "version": 2,
+      "file": "0001_items_feed_navigation.sql",
+      "sha256": "e3a026a5a9dba0260a4e5ff735074ce9e83fc3bea483b9bb30e89a83478d9ae4"
+    }
+  ]
+}
