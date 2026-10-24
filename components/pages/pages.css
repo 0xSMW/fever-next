@@ -1,0 +1,783 @@
+/*
+ * Standalone Fever pages: login, setup, recovery, Feedlet, subscribe, shortcuts,
+ * extras, blacklist, maintenance, diagnostics, and release notice.
+ *
+ * Every rule is scoped under .fp-page so this file cannot change the reader.
+ * The look follows firewall/app/views/default/styles/{shared,page}.css: a light
+ * gray rounded page box on a gray gradient, a large light heading, red #A10
+ * subheadings, Helvetica, divider lines between form rows, and lowercase pill
+ * buttons. Sprite images are replaced by CSS equivalents. Font sizes, button
+ * colours, and the heading colour are raised from the source values so text
+ * meets WCAG AA contrast and remains readable at 200% zoom.
+ */
+
+.fp-page {
+  --fp-red: #a10;
+  --fp-red-dark: #800d00;
+  --fp-text: #333;
+  --fp-muted: #5e5e5e;
+  --fp-guess: #8a5523;
+  --fp-ok: #2f6b1f;
+  --fp-bg: #e9e9e9;
+  --fp-box: #f2f2f2;
+  --fp-box-light: #fbfbfb;
+  --fp-line: #d4d4d4;
+  --fp-input-focus: #ffc;
+  --fp-width: 26rem;
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 1.25rem 0.75rem 1.5rem;
+  color: var(--fp-text);
+  background: var(--fp-bg) linear-gradient(to bottom, #fff 0, var(--fp-bg) 22rem) no-repeat;
+  font: 13px/1.55 Helvetica, Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+.fp-page *,
+.fp-page *::before,
+.fp-page *::after {
+  box-sizing: border-box;
+}
+
+.fp-page.fp-wide { --fp-width: 40rem; }
+.fp-page.fp-xwide { --fp-width: 56rem; }
+
+.fp-frame {
+  width: 100%;
+  max-width: var(--fp-width);
+  margin: 0 auto;
+}
+
+/* The source page box: rounded, light gradient, faint edge. */
+.fp-box {
+  position: relative;
+  padding: 0 0 0.25rem;
+  border-radius: 7px;
+  background: linear-gradient(to bottom, var(--fp-box) 0, var(--fp-box-light) 6.5rem, var(--fp-box-light) 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.fp-page h1 {
+  margin: 0 1rem 0.8rem;
+  padding: 1.1rem 0 0;
+  color: #858585;
+  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: clamp(2.25rem, 9vw, 3.25rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 1px 1px 0 #fff;
+  overflow-wrap: anywhere;
+}
+
+.fp-page h2 {
+  margin: 0 1rem 0.75rem;
+  color: var(--fp-red);
+  font-size: 1rem;
+  font-weight: bold;
+  line-height: 1.35;
+}
+
+.fp-page h3 {
+  margin: 1rem 1rem 0.5rem;
+  color: var(--fp-text);
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.fp-page p,
+.fp-page ul.fp-list,
+.fp-page ol.fp-list,
+.fp-page pre,
+.fp-page dl {
+  margin: 0 1rem 0.85rem;
+}
+
+.fp-page ul.fp-list,
+.fp-page ol.fp-list {
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.fp-page ol.fp-list { list-style: decimal; }
+
+.fp-page .fp-notice ul { list-style: disc; }
+
+.fp-page summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.fp-page ul.fp-list li,
+.fp-page ol.fp-list li {
+  margin-bottom: 0.35rem;
+}
+
+.fp-page a {
+  color: var(--fp-text);
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.fp-page a:hover {
+  color: var(--fp-red);
+}
+
+.fp-page .fp-text a,
+.fp-page a.fp-link {
+  color: var(--fp-red);
+  font-weight: normal;
+  text-decoration: underline;
+}
+
+.fp-page .fp-text a:hover,
+.fp-page a.fp-link:hover {
+  text-decoration: none;
+}
+
+.fp-page code,
+.fp-page pre,
+.fp-page kbd {
+  font: 0.85rem/1.5 Monaco, Menlo, Consolas, monospace;
+}
+
+.fp-page code {
+  padding: 0 0.2em;
+  background: #e8e8e8;
+  border-radius: 2px;
+}
+
+.fp-page pre {
+  padding: 0.6rem 0.75rem;
+  overflow: auto;
+  background: #e8e8e8;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fp-page pre code {
+  padding: 0;
+  background: none;
+}
+
+.fp-page kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.35em;
+  border: 1px solid #c4c4c4;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--fp-text);
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 0.85rem;
+  font-weight: bold;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.fp-muted { color: var(--fp-muted); }
+.fp-small { font-size: 0.85rem; }
+.fp-nowrap { white-space: nowrap; }
+.fp-break { overflow-wrap: anywhere; word-break: break-word; }
+
+.fp-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fp-skip {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 10;
+  padding: 0.4rem 0.75rem;
+  background: #333;
+  color: #fff !important;
+  border-radius: 4px;
+}
+
+.fp-skip:focus { top: 0.5rem; }
+
+/* Form rows with the engraved source divider. */
+.fp-rows {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.fp-row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.25rem 0.75rem;
+  padding: 0.6rem 1rem 0.5rem;
+  border-top: 1px solid var(--fp-line);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.fp-row.fp-row-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.fp-row > .fp-label {
+  padding-top: 0.35rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.fp-row-stack > .fp-label { padding-top: 0; }
+
+.fp-field { min-width: 0; }
+
+.fp-hint {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--fp-muted);
+  font-size: 0.85rem;
+}
+
+.fp-field-error {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--fp-red);
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.fp-page input[type="text"],
+.fp-page input[type="email"],
+.fp-page input[type="password"],
+.fp-page input[type="url"],
+.fp-page input[type="search"],
+.fp-page select,
+.fp-page textarea {
+  display: block;
+  width: 100%;
+  min-height: 2.15rem;
+  margin: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #c8c8c8;
+  border-radius: 2px;
+  background: #fff;
+  color: var(--fp-text);
+  font: inherit;
+  font-size: max(1rem, 16px); /* stops iOS zooming on focus */
+  line-height: 1.4;
+}
+
+.fp-page select[multiple] {
+  min-height: 6rem;
+}
+
+.fp-page textarea {
+  min-height: 10rem;
+  resize: vertical;
+  font: 0.9rem/1.5 Monaco, Menlo, Consolas, monospace;
+}
+
+.fp-page input:focus,
+.fp-page select:focus,
+.fp-page textarea:focus {
+  background-color: var(--fp-input-focus);
+}
+
+.fp-page [aria-invalid="true"] {
+  border-color: var(--fp-red);
+  box-shadow: inset 0 0 0 1px var(--fp-red);
+}
+
+.fp-page input[type="checkbox"],
+.fp-page input[type="radio"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0 0.35rem 0 0;
+  vertical-align: -0.15rem;
+  accent-color: var(--fp-red);
+}
+
+.fp-choice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  margin-right: 1rem;
+  cursor: pointer;
+}
+
+.fp-choice.fp-block { display: flex; margin-right: 0; }
+
+.fp-page :focus-visible {
+  outline: 2px solid var(--fp-red);
+  outline-offset: 2px;
+}
+
+/* Buttons: lowercase pills, dark default, as in btn-text.png. */
+.fp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem 0.55rem;
+  border-top: 1px solid var(--fp-line);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.fp-actions.fp-start { justify-content: flex-start; }
+.fp-actions .fp-spacer { flex: 1 1 auto; }
+.fp-actions.fp-flush { border-top: 0; box-shadow: none; }
+
+.fp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.2rem 0.95rem;
+  border: 0;
+  border-radius: 1rem;
+  background: #d5d5d5;
+  background-image: linear-gradient(to bottom, #dedede, #cdcdcd);
+  color: #222 !important;
+  font: inherit;
+  font-weight: normal !important;
+  line-height: 1.2;
+  text-decoration: none !important;
+  text-transform: lowercase;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.fp-btn:hover {
+  background: #bdbdbd;
+}
+
+.fp-btn.fp-default {
+  background: #333;
+  background-image: linear-gradient(to bottom, #444, #2a2a2a);
+  color: #fff !important;
+  box-shadow: none;
+}
+
+.fp-btn.fp-default:hover { background: #111; }
+
+.fp-btn.fp-danger {
+  background: var(--fp-red);
+  color: #fff !important;
+  box-shadow: none;
+}
+
+.fp-btn.fp-danger:hover { background: var(--fp-red-dark); }
+
+.fp-btn[disabled],
+.fp-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.fp-btn.fp-bookmarklet {
+  cursor: grab;
+}
+
+@media (pointer: coarse) {
+  .fp-btn { min-height: 2.75rem; padding-inline: 1.15rem; }
+  .fp-choice { min-height: 2.75rem; }
+}
+
+/* Notices */
+.fp-notice {
+  margin: 0 1rem 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid #999;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.fp-notice > :last-child { margin-bottom: 0; }
+.fp-notice p { margin: 0 0 0.4rem; }
+.fp-notice.fp-error { border-left-color: var(--fp-red); }
+.fp-notice.fp-error strong:first-child { color: var(--fp-red); }
+.fp-notice.fp-success { border-left-color: var(--fp-ok); }
+.fp-notice.fp-warning { border-left-color: #b8860b; }
+
+.fp-notice ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.fp-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 1rem 1rem;
+  color: var(--fp-muted);
+}
+
+.fp-spinner {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #ccc;
+  border-top-color: var(--fp-red);
+  border-radius: 50%;
+  animation: fp-spin 0.8s linear infinite;
+}
+
+@keyframes fp-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-spinner { animation: none; border-top-color: #ccc; border-right-color: var(--fp-red); }
+  .fp-page * { scroll-behavior: auto !important; transition: none !important; }
+}
+
+/* Footer: logo plus the source notice. */
+.fp-footer {
+  position: relative;
+  min-height: 1.5rem;
+  margin: 0.6rem 0 0;
+  padding: 0 0.5rem 0 4.5rem;
+  color: var(--fp-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.fp-footer .fp-logo {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.5rem;
+  display: block;
+  width: 50px;
+  height: 17px;
+}
+
+.fp-footer nav {
+  margin-top: 0.2rem;
+}
+
+.fp-footer nav a {
+  margin-right: 0.75rem;
+  color: var(--fp-muted);
+  font-weight: normal;
+  text-decoration: underline;
+}
+
+/* Feedlet candidate list */
+.fp-candidates {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fp-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.35rem 0.75rem;
+  padding: 0.6rem 1rem 0.5rem;
+  border-top: 1px solid var(--fp-line);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.fp-candidate-main { min-width: 0; }
+
+.fp-candidate label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+  cursor: pointer;
+}
+
+.fp-candidate label input { margin-top: 0.2rem; }
+
+.fp-candidate .fp-url {
+  display: block;
+  color: var(--fp-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.fp-candidate.fp-is-guess .fp-candidate-title { color: var(--fp-guess); }
+.fp-candidate.fp-is-subscribed .fp-candidate-title { color: var(--fp-muted); }
+
+.fp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+
+.fp-tag {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border-radius: 0.6rem;
+  background: #e2e2e2;
+  color: #333;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.fp-tag.fp-tag-guess { background: #f1e3d3; color: #6b3f15; }
+.fp-tag.fp-tag-subscribed { background: #dfe9d9; color: #24511a; }
+.fp-tag.fp-tag-auth { background: #f5dcd8; color: #7a0c00; }
+.fp-tag.fp-tag-options { background: #333; color: #fff; }
+
+/* Options dialog, styled after the source dialog: dark title bar, tabs. */
+.fp-dialog {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--fp-box-light);
+  color: var(--fp-text);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font: 13px/1.55 Helvetica, Arial, sans-serif;
+  overflow: auto;
+}
+
+.fp-dialog::backdrop {
+  background: rgba(40, 40, 40, 0.55);
+}
+
+.fp-dialog form { margin: 0; padding: 0; }
+
+.fp-dialog-title {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(to bottom, #555, #333);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.fp-tabs {
+  display: flex;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.4rem 0.5rem 0;
+  background: #d9d9d9;
+  border-bottom: 1px solid #bdbdbd;
+}
+
+.fp-tab {
+  margin: 0 0 -1px;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: #333;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fp-tab[aria-selected="true"] {
+  border-color: #bdbdbd;
+  border-bottom-color: var(--fp-box-light);
+  background: var(--fp-box-light);
+  font-weight: bold;
+}
+
+.fp-tabpanel { padding-bottom: 0.25rem; }
+.fp-tabpanel > .fp-row:first-child { border-top: 0; box-shadow: none; }
+.fp-dialog .fp-row { padding-inline: 0.75rem; }
+.fp-dialog .fp-actions { padding-inline: 0.75rem; }
+
+.fp-checklist {
+  max-height: 10rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid #c8c8c8;
+  background: #fff;
+}
+
+.fp-inherit {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+}
+
+/* Shortcut table */
+.fp-shortcuts {
+  width: calc(100% - 2rem);
+  margin: 0 1rem 1rem;
+  border-collapse: collapse;
+}
+
+.fp-shortcuts caption {
+  padding: 0.25rem 0;
+  color: var(--fp-red);
+  font-weight: bold;
+  text-align: left;
+}
+
+.fp-shortcuts th,
+.fp-shortcuts td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.fp-shortcuts thead th {
+  color: var(--fp-muted);
+  font-size: 0.8rem;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* One shortcut column width for every table, so the command columns line up
+   the way the single PHP table did. Wider content still widens its table. */
+.fp-shortcuts tbody th {
+  width: 13rem;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: normal;
+}
+
+.fp-shortcuts tbody tr:nth-child(even) > * {
+  background: rgba(0, 0, 0, 0.045);
+}
+
+.fp-shortcuts .fp-or {
+  margin: 0 0.3rem;
+  color: var(--fp-muted);
+  font-size: 0.8rem;
+}
+
+/* Diagnostics */
+.fp-kv {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: 0.2rem 1rem;
+  margin: 0 1rem 0.85rem;
+}
+
+.fp-kv dt { font-weight: bold; overflow-wrap: anywhere; }
+.fp-kv dd { margin: 0; overflow-wrap: anywhere; }
+
+.fp-kv .fp-kv {
+  margin: 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid #ddd;
+}
+
+.fp-table-wrap {
+  margin: 0 1rem 0.85rem;
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.fp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.fp-table th,
+.fp-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.fp-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f4f4f4;
+  white-space: nowrap;
+}
+
+.fp-status-ok { color: var(--fp-ok); font-weight: bold; }
+.fp-status-bad { color: var(--fp-red); font-weight: bold; }
+
+.fp-section {
+  padding: 0.6rem 0 0.1rem;
+  border-top: 1px solid var(--fp-line);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.fp-section > h2 { margin-top: 0.1rem; }
+
+/* Maintenance operation list */
+.fp-ops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fp-op {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  padding: 0.65rem 1rem 0.55rem;
+  border-top: 1px solid var(--fp-line);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.fp-op h3 { margin: 0 0 0.15rem; }
+.fp-op p { margin: 0; }
+
+/* Preflight checklist */
+.fp-checks {
+  margin: 0 1rem 0.85rem;
+  padding: 0;
+  list-style: none;
+}
+
+.fp-checks li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+}
+
+.fp-checks .fp-mark { font-weight: bold; text-align: center; }
+
+/* Narrow screens: the mobile login and pages fill the width. */
+@media (max-width: 30rem) {
+  .fp-page { padding: 0.5rem 0.4rem 1rem; }
+  .fp-row { grid-template-columns: minmax(0, 1fr); }
+  .fp-row > .fp-label { padding-top: 0; }
+  .fp-actions { justify-content: stretch; }
+  .fp-actions .fp-btn { flex: 1 1 auto; }
+  .fp-actions .fp-spacer { display: none; }
+  .fp-op { grid-template-columns: minmax(0, 1fr); }
+  .fp-kv { grid-template-columns: minmax(0, 1fr); }
+  .fp-kv dt { margin-top: 0.35rem; }
+  .fp-shortcuts tbody th { width: 1%; white-space: normal; }
+}
+
+@media (forced-colors: active) {
+  .fp-btn { border: 1px solid ButtonText; }
+  .fp-box { border: 1px solid CanvasText; }
+}
+
+@media print {
+  .fp-page { background: none; }
+  .fp-actions, .fp-footer nav { display: none; }
+}
