@@ -18,7 +18,7 @@ import { Button, ErrorBanner, Footer, Frame, Loading, PanelContext, type PanelCo
 import {
   isManagementKind, type ManagementDialogProps, type ManagementKind, type ManagementPanelProps, type ManagementRequest,
 } from "./types";
-import { useReaderData } from "./useReaderData";
+import { useReaderData } from "@/lib/client/useReaderData";
 
 export type {
   ManagementDialogProps, ManagementKind, ManagementPanelProps, ManagementRequest, MaintenanceOperation, PreferenceTab,
@@ -64,7 +64,7 @@ function PanelBody({ request, onClose, onChanged, standalone = false, modalRef }
   const kind = current.kind;
   const needsView = isManagementKind(kind) && !VIEWLESS.includes(kind);
   const providedView: ReaderView | undefined = current.view ?? request.view;
-  const data = useReaderData(providedView, needsView);
+  const data = useReaderData({ initial: providedView, enabled: needsView });
   const view = providedView ?? data.view;
   const { reload } = data;
 
