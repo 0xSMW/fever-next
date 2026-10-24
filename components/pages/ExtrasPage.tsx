@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Preferences, ReaderView } from "@/lib/contracts";
-import { apiGet, appHref, command } from "@/lib/client/api";
-import { describeError, type DescribedError } from "./api-errors";
+import { useEffect, useRef, useState } from "react";
+import { appHref, command } from "@/lib/client/api";
+import { describeError, type DescribedError } from "@/lib/client/errors";
 import { CopyField, FeedletBookmarklet, useInstallUrls } from "./FeedletTools";
+import { useReaderData } from "@/lib/client/useReaderData";
 import { PageShell } from "./PageShell";
 import { SessionGate } from "./SessionGate";
 import { ErrorNotice, Loading, Notice } from "./Status";
@@ -14,21 +14,12 @@ export type ExtrasSection = "refresh";
 
 function ExtrasContent({ section }: { section: ExtrasSection | null }) {
   const urls = useInstallUrls();
-  const [preferences, setPreferences] = useState<Preferences | null>(null);
-  const [error, setError] = useState<DescribedError | null>(null);
+  const { view, error, reload: retryLoad } = useReaderData();
+  const preferences = view?.preferences;
   const [refreshing, setRefreshing] = useState(false);
   const [refreshQueued, setRefreshQueued] = useState(false);
   const [refreshError, setRefreshError] = useState<DescribedError | null>(null);
   const refreshRef = useRef<HTMLElement | null>(null);
-
-  const fetchPreferences = useCallback(() => {
-    apiGet<ReaderView>("/api/reader?capture=false").then(
-      (view) => setPreferences(view.preferences),
-      (reason: unknown) => setError(describeError(reason, "Your preferences could not be loaded.")),
-    );
-  }, []);
-  useEffect(fetchPreferences, [fetchPreferences]);
-  const retryLoad = () => { setError(null); fetchPreferences(); };
 
   useEffect(() => {
     if (section === "refresh") refreshRef.current?.scrollIntoView({ block: "start" });
