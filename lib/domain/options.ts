@@ -1,30 +1,16 @@
 import type { DisplayOptions, Preferences, SharingService, ViewState } from "../contracts";
-import { defaultPreferences, defaultViewState } from "../config";
+import { defaultPreferences, defaultViewState, DISPLAY_KEYS, SECTIONS, PERSISTED_FOCUS, READER_LIMITS } from "../reader-policy";
+export { DISPLAY_KEYS, SECTIONS, resolveDisplayOptions } from "../reader-policy";
 import { DomainError, boolean, enumeration, integer, object, rejectUnknown, text } from "../validation";
 
 export const DEFAULT_PREFERENCES = defaultPreferences;
 export const DEFAULT_VIEW = defaultViewState;
-export const DISPLAY_KEYS = ["itemExcerpts", "itemAllows", "unreadCounts", "sortOrder"] as const;
 const BOOL_KEYS = ["useCelsius", "newWindow", "unreadCounts", "itemExcerpts", "autoSpark", "autoRead", "mobileReadOnScroll", "mobileReadOnBackOut", "mobileViewInApp", "autoReload", "autoRefresh", "autoUpdate", "toggleClick", "anonymize", "share", "shareProtected"] as const;
-export const SECTIONS = ["hot", "kindling", "saved", "sparks", "search"] as const;
 
 export function displayOptions(input: Record<string, unknown>): Partial<DisplayOptions> {
   const result: Partial<DisplayOptions> = {};
   for (const key of DISPLAY_KEYS) {
     if (input[key] !== undefined) result[key] = enumeration(input[key], key, key === "itemAllows" ? [-1, 0, 1, 2] : [-1, 0, 1]);
-  }
-  return result;
-}
-
-/** Do not let a selected group leak into Saved, Sparks, Search, or Hot. */
-export function resolveDisplayOptions(preferences: Preferences, view: Pick<ViewState, "section" | "groupId">, group?: DisplayOptions, feed?: DisplayOptions): DisplayOptions {
-  const result: DisplayOptions = {
-    itemExcerpts: Number(preferences.itemExcerpts), itemAllows: preferences.itemAllows,
-    unreadCounts: Number(preferences.unreadCounts), sortOrder: preferences.sortOrder,
-  };
-  for (const key of DISPLAY_KEYS) {
-    if (view.section === "kindling" && view.groupId && group && group[key] !== -1) result[key] = group[key];
-    if (feed && feed[key] !== -1) result[key] = feed[key];
   }
   return result;
 }
@@ -79,11 +65,11 @@ export function viewPatch(value: unknown): Partial<ViewState> {
   if (input.previous !== undefined) patch.previous = enumeration(input.previous, "previous", SECTIONS);
   if (input.groupId !== undefined) patch.groupId = integer(input.groupId, "groupId");
   if (input.feedId !== undefined) patch.feedId = integer(input.feedId, "feedId");
-  if (input.search !== undefined) patch.search = text(input.search, "search", 2048);
-  if (input.hasFocus !== undefined) patch.hasFocus = enumeration(input.hasFocus, "hasFocus", ["groups", "feeds", "items", "links", "article"]);
+  if (input.search !== undefined) patch.search = text(input.search, "search", READER_LIMITS.search);
+  if (input.hasFocus !== undefined) patch.hasFocus = enumeration(input.hasFocus, "hasFocus", PERSISTED_FOCUS);
   if (input.showFeeds !== undefined) patch.showFeeds = boolean(input.showFeeds, "showFeeds");
   if (input.showRead !== undefined) patch.showRead = boolean(input.showRead, "showRead");
-  if (input.hotStart !== undefined) patch.hotStart = integer(input.hotStart, "hotStart", 0, 36500);
-  if (input.hotRange !== undefined) patch.hotRange = integer(input.hotRange, "hotRange", 1, 36500);
+  if (input.hotStart !== undefined) patch.hotStart = integer(input.hotStart, "hotStart", 0, READER_LIMITS.hotStart);
+  if (input.hotRange !== undefined) patch.hotRange = integer(input.hotRange, "hotRange", 1, READER_LIMITS.hotRange);
   return patch;
 }
