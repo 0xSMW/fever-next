@@ -569,35 +569,6 @@
   overflow-wrap: anywhere;
 }
 
-.fp-tabs {
-  display: flex;
-  gap: 0.15rem;
-  margin: 0;
-  padding: 0.4rem 0.5rem 0;
-  background: #d9d9d9;
-  border-bottom: 1px solid #bdbdbd;
-}
-
-.fp-tab {
-  margin: 0 0 -1px;
-  padding: 0.35rem 0.8rem;
-  border: 1px solid transparent;
-  border-radius: 4px 4px 0 0;
-  background: transparent;
-  color: #333;
-  font: inherit;
-  cursor: pointer;
-}
-
-.fp-tab[aria-selected="true"] {
-  border-color: #bdbdbd;
-  border-bottom-color: var(--fp-box-light);
-  background: var(--fp-box-light);
-  font-weight: bold;
-}
-
-.fp-tabpanel { padding-bottom: 0.25rem; }
-.fp-tabpanel > .fp-row:first-child { border-top: 0; box-shadow: none; }
 .fp-dialog .fp-row { padding-inline: 0.75rem; }
 .fp-dialog .fp-actions { padding-inline: 0.75rem; }
 
@@ -609,12 +580,6 @@
   list-style: none;
   border: 1px solid #c8c8c8;
   background: #fff;
-}
-
-.fp-inherit {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.85rem;
 }
 
 /* Shortcut table */
