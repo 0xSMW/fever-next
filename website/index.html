@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" id="feedafever-com">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fever&deg; Red hot. Well read.</title>
+<meta name="description" content="Fever takes the temperature of your slice of the web and shows you what's hot.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<script src="script.js" defer></script>
+</head>
+<body>
+<div class="container" id="top">
+	<div class="inner-container">
+		<header class="masthead section">
+			<h1><a id="logo" href="#top">Fever Red Hot. Well Read.</a></h1>
+
+			<p>
+				<a href="#account"><img src="assets/price.png" width="50" height="50" alt="Only $30"></a>
+				Your current feed reader is full of <strong>unread items</strong>. You’re hesitant to subscribe to any more feeds because you <strong>can't keep up</strong> with your existing subs. Maybe you've even <strong>abandoned feeds altogether</strong>.
+			</p>
+
+			<p><em>Fever takes the temperature of your slice of the web and shows you what's hot.</em></p>
+
+			<img id="pile" src="assets/pile.png" width="393" height="339" alt="">
+
+			<nav aria-label="Primary">
+				<ul class="inlay nav">
+					<li><a href="#top" class="active" aria-current="location">Top</a></li>
+					<li><a href="#features">Features</a></li>
+					<li><a href="#demo">Demo</a></li>
+					<li><a href="#account">Purchase</a></li>
+					<li><a href="#create-account">Your Account</a></li>
+					<li><a href="#support">Answers</a></li>
+					<li><a href="#contact">Contact</a></li>
+				</ul>
+			</nav>
+		</header><!-- /.masthead.section -->
+
+		<main>
+			<section class="section" id="features" aria-labelledby="features-title">
+				<h2 id="features-title">Features</h2>
+
+				<div class="row">
+					<p>
+						<img src="assets/features-hot.png" width="168" height="87" alt="">
+						<strong>While It’s Hot</strong>
+						Fever reads your feeds and picks out the most frequently talked about links from a customizable time period. Unlike traditional aggregators, Fever works better the more feeds you follow.
+					</p>
+				</div><!-- /.row -->
+
+				<div class="row">
+					<p>
+						<img src="assets/features-pressure.png" width="168" height="87" alt="">
+						<strong>No Pressure</strong>
+						By default Fever hides unread counts to spare you unsavory unread item guilt but sometimes you want to keep an eye on those climbing numbers. Control unread counts on a global, group or feed level.
+					</p>
+
+					<p>
+						<img src="assets/feature-fluid.png" width="168" height="87" alt="">
+						<strong>Stay Hydrated</strong>
+						Fever integrates with the popular Mac OS X single-site browser factory <a href="http://fluidapp.com/">Fluid.app</a>. The total number of unread items is updated in the Dock in real-time.<br>
+						<a href="assets/fever-fluid.png">Download the Fever icon for Fluid.app.</a>
+					</p>
+				</div><!-- /.row -->
+
+				<div class="row">
+					<p>
+						<img src="assets/feature-favicons.png" width="168" height="87" alt="">
+						<strong>Iconic</strong>
+						If a picture is worth a thousand words a favicon is worth at least the title of the feed. Fever caches and embeds the favicons of all the sites you follow into a single, compressed file so reading is fast and intuitive.
+					</p>
+
+					<p>
+						<img src="assets/feature-iphone.png" width="168" height="87" alt="">
+						<strong>Take It with You</strong>
+						Fever includes an optimized interface designed specifically for the iPhone and iPod touch so you can access the current hotness, your saved items and the rest of your unread anywhere you go.
+					</p>
+				</div><!-- /.row -->
+
+				<div class="inlay">
+					<ul>
+						<li>Import/export standard OPML subscription lists</li>
+						<li>Blacklist domains to prevent ad spam</li>
+						<li>Create and manage groups of feeds</li>
+						<li>Support for cron-based refreshing of feeds</li>
+						<li>Fahrenheit and Celsius temperatures</li>
+					</ul>
+					<ul>
+						<li>Fever updates itself automatically</li>
+						<li>Keyboard shortcuts for mouse-free use</li>
+						<li>Fluid and fixed-width layout options</li>
+						<li>Search your feeds and their contents</li>
+						<li>Unread most recently read items</li>
+					</ul>
+				</div>
+			</section><!-- /#features.section -->
+
+			<section class="section" id="demo" aria-labelledby="demo-title">
+				<h2 id="demo-title">How Fever Works</h2>
+
+				<p class="how-to">To make the most of the Hot list, Fever asks you to make a simple distinction between essential and supplemental feeds. Essential, must-read feeds are Kindling. Supplemental, low signal-to-noise feeds are Sparks. Sparks ignite Kindling raising the temperature of items and links that should not be missed.</p>
+
+				<p>
+					<img src="assets/feature-groups.png" width="174" height="170" alt="">
+					<strong>Eye Before You Buy</strong>
+					Because Fever is a state-based single-user system a live demo isn’t possible. This video demo will highlight some of Fever’s features and walk through the compatibility suite and installation.
+				</p>
+
+				<div id="vid">
+					<video id="screencast" width="528" height="400" controls preload="none" poster="assets/screencast-poster.jpg" aria-label="Fever video demo">
+						<source src="assets/screencast.mp4" type="video/mp4">
+						Your browser cannot play this video.
+					</video>
+					<p class="vid-status" id="screencast-status" role="status"></p>
+				</div>
+			</section><!-- /#demo.section -->
+
+			<section class="section" id="account" aria-label="Purchase and account">
+				<div class="sub-section" id="purchase">
+					<h2 class="accent">Purchase</h2>
+					<p><strong>In order to purchase Fever and qualify for support you must first create an account.</strong></p>
+					<p>Once logged in you will be able to download the Fever Server Compatibility Suite which doubles as an installer.</p>
+					<p>Upon confirmation of your server’s ability to support Fever return here to purchase or retrieve your Activation Key.</p>
+				</div><!-- /#purchase.sub-section -->
+
+				<div class="sub-section" id="create-account">
+					<h2>Create an Account</h2>
+					<form method="post" id="create_account_form" class="inlay" aria-describedby="create_account_status">
+						<div class="fields">
+							<div class="field">
+								<label for="account_email">Email</label>
+								<span><input type="email" id="account_email" name="account[email]" autocomplete="email" required></span>
+							</div>
+							<div class="field">
+								<label for="account_confirm_email">Confirm Email</label>
+								<span><input type="email" id="account_confirm_email" name="account[confirm_email]" autocomplete="email" required></span>
+							</div>
+							<div class="field">
+								<label for="account_password">Password</label>
+								<span><input type="password" id="account_password" name="account[password]" autocomplete="new-password" required></span>
+							</div>
+							<div class="field">
+								<label for="account_confirm_password">Confirm Password</label>
+								<span><input type="password" id="account_confirm_password" name="account[confirm_password]" autocomplete="new-password" required></span>
+							</div>
+							<div class="field wide">
+								<label for="account_name">Full Name or Organization</label>
+								<span><input type="text" id="account_name" name="account[name]" autocomplete="name" required></span>
+							</div>
+							<div class="field">
+								<label for="account_handle">Display Name</label>
+								<span><input type="text" id="account_handle" name="account[handle]" autocomplete="nickname" required></span>
+							</div>
+							<div class="field">
+								<label for="account_offset">Current Date &amp; Time</label>
+								<span><select id="account_offset" name="account[offset]" autocomplete="off"><option value="-12">June 30, 2023, 10:48 pm</option><option value="-11">June 30, 2023, 11:48 pm</option><option value="-10">July 1, 2023, 12:48 am</option><option value="-9">July 1, 2023, 1:48 am</option><option value="-8">July 1, 2023, 2:48 am</option><option value="-7">July 1, 2023, 3:48 am</option><option value="-6">July 1, 2023, 4:48 am</option><option value="-5">July 1, 2023, 5:48 am</option><option value="-4">July 1, 2023, 6:48 am</option><option value="-3">July 1, 2023, 7:48 am</option><option value="-2">July 1, 2023, 8:48 am</option><option value="-1">July 1, 2023, 9:48 am</option><option value="0" selected>July 1, 2023, 10:48 am</option><option value="1">July 1, 2023, 11:48 am</option><option value="2">July 1, 2023, 12:48 pm</option><option value="3">July 1, 2023, 1:48 pm</option><option value="4">July 1, 2023, 2:48 pm</option><option value="5">July 1, 2023, 3:48 pm</option><option value="6">July 1, 2023, 4:48 pm</option><option value="7">July 1, 2023, 5:48 pm</option><option value="8">July 1, 2023, 6:48 pm</option><option value="9">July 1, 2023, 7:48 pm</option><option value="10">July 1, 2023, 8:48 pm</option><option value="11">July 1, 2023, 9:48 pm</option><option value="12">July 1, 2023, 10:48 pm</option><option value="13">July 1, 2023, 11:48 pm</option><option value="14">July 2, 2023, 12:48 am</option></select></span>
+							</div>
+						</div>
+						<em class="form-note">All fields are required.</em>
+						<button type="submit" disabled>Create</button>
+					</form>
+					<p class="form-status" id="create_account_status" role="status"></p>
+				</div><!-- /#create-account.sub-section -->
+
+				<div class="sub-section" id="login">
+					<h2 class="unaccent">Or Login</h2>
+					<p><strong>In order to retrieve your Activation Key or request support please login.</strong></p>
+					<p>Please note that the Fever Account Center and your individual Fever installation do not share the same email and password.</p>
+
+					<form method="post" id="login_form" class="inlay" aria-describedby="login_status">
+						<div class="fields">
+							<div class="field">
+								<label for="login_email">Email</label>
+								<span><input type="email" id="login_email" name="account[email]" autocomplete="username" required></span>
+							</div>
+							<div class="field">
+								<label for="login_password">Password</label> <a href="https://web.archive.org/web/2023/https://feedafever.com/account/request_reset" class="form-aside">Forgot?</a>
+								<span><input type="password" id="login_password" name="account[password]" autocomplete="current-password" required></span>
+							</div>
+						</div>
+						<button type="submit" disabled>Login</button>
+						<p class="form-status" id="login_status" role="status"></p>
+					</form>
+				</div><!-- /#login.sub-section -->
+			</section><!-- /#account.section -->
+
+			<section class="section" id="support" aria-label="Answers and contact">
+				<div class="sub-section" id="answers">
+					<h2>Answers</h2>
+
+					<div class="row">
+						<dl>
+							<dt>Is Fever a hosted service?</dt>
+							<dd>No, Fever is a PHP and MySQL application that you run on your own server. Fever has been designed with ease of maintenance in mind and can automatically update itself.</dd>
+						</dl>
+
+						<dl>
+							<dt>Is the $30 a one-time fee?</dt>
+							<dd>Fever is licensed like desktop software. Minor updates (eg. 1.0 to 1.1) will be free to licensed users while major upgrades (eg. 1.x to 2.0) will be discounted.</dd>
+						</dl>
+
+						<dl>
+							<dt>Does Fever support HTTP authenticated feeds?</dt>
+							<dd>Yes, Fever supports basic HTTP authentication and will prompt you for a username and password for a feed if necessary.</dd>
+						</dl>
+					</div><!-- /.row -->
+
+					<div class="row">
+						<dl>
+							<dt>What are the server requirements for Fever?</dt>
+							<dd>Fever requires a Unix-like server (no Windows/IIS) running Apache, PHP 4.2.3+ (preferably compiled with mbstring and GD with PNG support) and MySQL 3.23+.</dd>
+						</dl>
+
+						<dl>
+							<dt>What are the browser requirements for Fever?</dt>
+							<dd>Fever requires a WebKit- or Gecko-based browser including Safari 3+, Firefox 3+ and Safari on iOS. Webkit on Android while reported to work is not officially supported.</dd>
+						</dl>
+
+						<dl>
+							<dt>How can I help you better help me?</dt>
+							<dd>Be sure to mention your browser and OS, and versions for both, as well as your Fever url. If a particular feed is causing problems, please include a link to the feed.</dd>
+						</dl>
+					</div><!-- /.row -->
+
+					<p class="more"><a href="https://web.archive.org/web/2023/https://feedafever.com/answers">More answers</a> &nbsp; <a href="https://web.archive.org/web/2023/https://feedafever.com/api">API Public Beta</a></p>
+				</div><!-- /#answers.sub-section -->
+
+				<div class="sub-section" id="contact">
+					<h2 class="unaccent">Contact</h2>
+
+					<form method="post" id="contact_form" class="inlay" aria-describedby="contact_status">
+						<div class="fields">
+							<div class="field">
+								<label for="contact_form_name">Name</label>
+								<span><input type="text" id="contact_form_name" name="contact_form[name]" autocomplete="name" required></span>
+							</div>
+							<div class="field">
+								<label for="contact_form_email">Email Address</label>
+								<span><input type="email" id="contact_form_email" name="contact_form[email]" autocomplete="email" required></span>
+							</div>
+							<div class="field">
+								<label for="contact_form_url">URL</label> <em class="form-aside">Optional</em>
+								<span><input type="url" id="contact_form_url" name="contact_form[url]" placeholder="http://" autocomplete="url"></span>
+							</div>
+							<div class="field">
+								<label for="contact_form_subject">Subject</label>
+								<span><input type="text" id="contact_form_subject" name="contact_form[subject]" autocomplete="off" required></span>
+							</div>
+							<div class="field">
+								<label for="contact_form_message">Message</label>
+								<span><textarea id="contact_form_message" name="contact_form[message]" rows="8" cols="36" required></textarea></span>
+							</div>
+							<div class="field">
+								<label for="contact_form_check">Human Check <em class="form-aside">How much does Fever cost?</em></label>
+								<span><input type="text" id="contact_form_check" name="contact_form[check]" autocomplete="off"></span>
+							</div>
+						</div>
+
+						<button type="submit" disabled>Send</button>
+						<p class="form-status" id="contact_status" role="status"></p>
+					</form>
+					<p class="response-time">Fever is designed, developed and supported by a single individual. Typical response time is currently 5 or more business&nbsp;days.</p>
+				</div><!-- /#contact.sub-section -->
+			</section><!-- /#support.section -->
+		</main>
+
+		<a href="http://mediatemple.net/" id="mt">In Partnership with (mt) Media Temple.</a>
+	</div><!-- /.inner-container -->
+</div><!-- /.container -->
+
+<footer class="footer container">
+	<div class="inner-container">
+		<p>Fever, its website and all related files are copyright &copy; 2008-2023 <a href="http://shauninman.com/">Shaun Inman</a>.</p>
+
+		<div id="minted"><a href="http://haveamint.com/"><img src="assets/logo-mint.png" width="12" height="12" alt=""> Minted</a>, of course.</div>
+	</div><!-- /.footer.inner-container -->
+</footer><!-- /.container -->
+</body>
+</html>
