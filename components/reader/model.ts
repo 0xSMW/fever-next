@@ -1,4 +1,5 @@
 import type { DisplayOptions, FeedDTO, GroupDTO, ItemDTO, Preferences, ReaderView, ViewState } from "@/lib/contracts";
+import { resolveDisplayOptions } from "@/lib/reader-policy";
 import { groupTitle } from "@/lib/client/format";
 
 export type ItemStateClass = "saved" | "new" | "unread" | "read";
@@ -14,19 +15,13 @@ export const STATE_LABELS: Record<ItemStateClass, string> = {
 
 /**
  * Global -> active custom group (Kindling only) -> feed, with -1 inheriting.
- * Mirrors lib/domain/options.ts resolveDisplayOptions without server imports.
+ * Shared with server rendering through the pure reader policy.
  */
 export function resolveOption(
   key: keyof DisplayOptions, preferences: Preferences, view: Pick<ViewState, "section" | "groupId">,
   groups: GroupDTO[], feed?: Pick<FeedDTO, keyof DisplayOptions> | null,
 ): number {
-  let value = Number(preferences[key]);
-  if (view.section === "kindling" && view.groupId) {
-    const group = groups.find((g) => g.id === view.groupId);
-    if (group && group[key] !== -1) value = group[key];
-  }
-  if (feed && feed[key] !== -1) value = feed[key];
-  return value;
+  return resolveDisplayOptions(preferences, view, groups.find(g => g.id === view.groupId), feed ?? undefined)[key];
 }
 
 export function groupUnreadCountsVisible(preferences: Preferences, group: GroupDTO | null): boolean {
@@ -101,9 +96,7 @@ function sameScope(a: ViewState, b: ViewState): boolean {
  * nothing here re-sorts. data.feeds and data.groups stay complete for
  * management dialogs.
  */
-export function scopeFeeds(data: ReaderView, view: ViewState, _loadedItems?: ItemDTO[]): FeedDTO[] {
-  // Kept so callers need no change; Search no longer filters by loaded items (see below).
-  void _loadedItems;
+export function scopeFeeds(data: ReaderView, view: ViewState): FeedDTO[] {
   if (view.section === "hot") return [];
   if (data.visibleFeedIds && sameScope(data.view, view)) {
     const ids = new Set(data.visibleFeedIds);
@@ -132,8 +125,8 @@ export function scopeFeeds(data: ReaderView, view: ViewState, _loadedItems?: Ite
   }
 }
 
-export function visibleScopeFeeds(data: ReaderView, view: ViewState, loadedItems: ItemDTO[]): FeedDTO[] {
-  const rows = scopeFeeds(data, view, loadedItems);
+export function visibleScopeFeeds(data: ReaderView, view: ViewState): FeedDTO[] {
+  const rows = scopeFeeds(data, view);
   if (view.showRead || view.section === "saved" || view.section === "search") return rows;
   return rows.filter((feed) => feed.unreadCount > 0 || feed.id === view.feedId);
 }
@@ -206,9 +199,10 @@ export function adjustFeedCounts(data: ReaderView, feedId: number, unreadDelta: 
 }
 
 /** Find a stored item by ID in the list or any Hot source list. */
-export function findItem(items: ItemDTO[], links: ReaderView["links"], itemId: number): ItemDTO | undefined {
+export function findItem(items: ItemDTO[], links: ReaderView["links"], itemId: number, article?: ItemDTO | null): ItemDTO | undefined {
   return items.find((item) => item.id === itemId)
-    ?? links.flatMap((link) => link.sources).find((source) => source.id === itemId);
+    ?? links.flatMap((link) => link.sources).find((source) => source.id === itemId)
+    ?? (article?.id === itemId ? article : undefined);
 }
 
 /** Temperature groups in display order (links arrive ordered by the server). */
@@ -221,4 +215,9 @@ export function groupLinksByTemperature<T extends { temperature: number }>(links
     else groups.push({ degree, links: [link] });
   }
   return groups;
+}
+
+/** A standalone article stays outside ordered page rows and their cursors. */
+export function patchArticle(article: ItemDTO | null, id: number, patch: Partial<ItemDTO>): ItemDTO | null {
+  return article?.id === id ? { ...article, ...patch } : article;
 }
