@@ -118,6 +118,8 @@ async function saveImage(client: PoolClient, lease: FeedLease, image: SafeImage,
   return toId(saved.rows[0].id);
 }
 export async function commitRefresh(lease: FeedLease, outcome: RefreshOutcome): Promise<void> {
+  const config = getConfig();
+  const requestIsHttps = config.baseUrl?.startsWith('https:');
   await transaction(async client => {
     await assertLease(client, lease.job, lease);
     await acquireBlacklistReadLock(client, lease.job.ownerId);
@@ -135,7 +137,7 @@ export async function commitRefresh(lease: FeedLease, outcome: RefreshOutcome): 
     for (const rejected of outcome.parsed?.quarantined ?? []) await quarantine(client, lease, rejected.item, rejected.code);
     for (const item of outcome.parsed?.items ?? []) {
       // Freeze skips as well as deletion while migration/rehearsal retains evidence.
-      if (getConfig().retentionEnabled && item.publishedAt > 0 && item.publishedAt < expires) continue;
+      if (config.retentionEnabled && item.publishedAt > 0 && item.publishedAt < expires) continue;
       const names = aliases(item);
       const existing = await existingItem(client, lease, item, names);
       if (existing === 'conflict') { await quarantine(client, lease, item, 'identity_collision'); warnings.push('An ambiguous item identity was quarantined without changing the stored article.'); continue; }
@@ -161,13 +163,13 @@ export async function commitRefresh(lease: FeedLease, outcome: RefreshOutcome): 
         if (!saved.rowCount) throw new Error('Item alias identity collision.');
       }
       await client.query('DELETE FROM link_occurrences WHERE item_id=$1', [itemId]);
-      const occurrences = extractLinkOccurrences({ id: itemId, feedId: lease.feed.id, title: item.title, url: item.url, html: rankingContent(item.rawHtml, siteUrl, getConfig().baseUrl?.startsWith('https:')), publishedAt }, extractionFeed, blacklist, { requestIsHttps: getConfig().baseUrl?.startsWith('https:') });
+      const occurrences = extractLinkOccurrences({ id: itemId, feedId: lease.feed.id, title: item.title, url: item.url, html: rankingContent(item.rawHtml, siteUrl, requestIsHttps), publishedAt }, extractionFeed, blacklist, { requestIsHttps });
       for (const link of occurrences) {
         await client.query(`INSERT INTO link_occurrences(feed_id,item_id,original_url,url,canonical_url,url_key,url_checksum,title_url_checksum,title,is_item,is_local,is_blacklisted,is_first,weight,created_at,normalization_version,ranking_version)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`, [link.feedId, link.itemId, link.originalUrl, link.url, link.canonicalUrl, link.urlKey, link.urlChecksum, link.titleUrlChecksum, link.title, link.isItem, link.isLocal, link.isBlacklisted, link.isFirst, link.weight, link.createdAt, link.normalizationVersion, link.rankingVersion]);
       }
     }
-    if (getConfig().retentionEnabled && !lease.job.faviconOnly) {
+    if (config.retentionEnabled && !lease.job.faviconOnly) {
       const expiredLinks = await client.query('DELETE FROM link_occurrences WHERE feed_id=$1 AND created_at<$2', [lease.feed.id, expires]);
       const expiredItems = await client.query('DELETE FROM items WHERE feed_id=$1 AND published_at<$2 AND NOT is_saved', [lease.feed.id, expires]);
       linksChanged ||= Boolean(expiredLinks.rowCount || expiredItems.rowCount);
