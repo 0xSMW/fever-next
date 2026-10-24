@@ -1,21 +1,22 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, lt, lte, max, or, sql, type SQL } from "drizzle-orm";
-import { legacySortFeeds, legacyLike, legacyTextCompare } from "../db/collation";
+import { legacyLike } from "../db/collation";
 import type { FeedDTO, GroupDTO, ItemDTO, Preferences, ReaderQuery, ReaderView, ViewState } from "../contracts";
-import { getDb } from "../db/client";
-import { feedFetchState, feedGroups, feeds, groups, items, type FeedRow, type ItemRow } from "../db/schema";
+import { feedFetchState, feeds, groups, items, type FeedRow, type ItemRow } from "../db/schema";
 import { epochNow, toCount } from "../db/numbers";
 import { getConfig } from "../config";
 import { contentUrl, excerpt, sanitizeContent } from "../ingest";
 import { DomainError, integer } from "../validation";
 import { cursorScope, decodeCursor, encodeCursor } from "./cursor";
 import { getHotPage } from "./hot";
-import { beginDomainMutation } from "./guard";
+import { loadSubscriptionRows } from "./catalog";
+import { INHERITED_DISPLAY } from "../reader-policy";
+import { assertOwnerContext, withReaderSnapshot } from "./transaction";
 import { resolveDisplayOptions, viewPatch } from "./options";
-import { assertOwner, captureReaderView, deviceKey, getPreferences, getViewState } from "./preferences";
+import { captureReaderView, deviceKey, getPreferences, getViewState } from "./preferences";
 import type { DomainDb, OwnerContext } from "./types";
 
-const inherited = { itemExcerpts: -1, itemAllows: -1, unreadCounts: -1, sortOrder: -1 };
+const inherited = INHERITED_DISPLAY;
 
 function safeUrl(value: string) { return contentUrl(value) ?? ""; }
 function attribute(value: string) { return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
@@ -40,52 +41,42 @@ export function itemDTO(row: ItemRow, feed: FeedRow, preferences: Preferences, v
 }
 
 async function navigation(owner: OwnerContext, db: DomainDb) {
-  const fetchedFeeds = await db.select({ feed: feeds, fetch: feedFetchState }).from(feeds)
-    .leftJoin(feedFetchState, eq(feedFetchState.feedId, feeds.id)).where(eq(feeds.ownerId, owner.id));
-  // These navigation rows are already loaded in full. Item matching and paging
-  // remain SQL queries; no item rows are fetched for comparison in JavaScript.
-  // relationships() first obtains MySQL title/url order, then PHP ksort uses
-  // low(title(feed).id). Preserve that starting order for PHP's mixed-key sort.
-  fetchedFeeds.sort((left, right) => legacyTextCompare(left.feed.title, right.feed.title) ||
-    legacyTextCompare(left.feed.url, right.feed.url) || left.feed.id - right.feed.id);
-  const feedById = new Map(fetchedFeeds.map(row => [row.feed.id, row]));
-  const feedRows = legacySortFeeds(fetchedFeeds.map(row => row.feed)).map(feed => feedById.get(feed.id)!);
-  const groupRows = await db.select().from(groups).where(eq(groups.ownerId, owner.id));
-  groupRows.sort((left, right) => legacyTextCompare(left.title, right.title) || left.id - right.id);
-  const memberships = await db.select({ feedId: feedGroups.feedId, groupId: feedGroups.groupId }).from(feedGroups)
-    .innerJoin(feeds, eq(feeds.id, feedGroups.feedId)).innerJoin(groups, eq(groups.id, feedGroups.groupId))
-    .where(and(eq(feeds.ownerId, owner.id), eq(groups.ownerId, owner.id)));
+  const { feedRows, groupRows, groupsByFeed, feedsByGroup } = await loadSubscriptionRows(owner, db);
+  const fetchRows = await db.select({ state: feedFetchState }).from(feedFetchState).innerJoin(feeds, eq(feeds.id, feedFetchState.feedId)).where(eq(feeds.ownerId, owner.id));
+  const fetchByFeed = new Map(fetchRows.map(({ state }) => [state.feedId, state]));
   const countRows = await db.select({ feedId: items.feedId, total: sql<string>`count(*)`, unread: sql<string>`count(*) filter (where ${items.readAt} = 0)`, saved: sql<string>`count(*) filter (where ${items.isSaved})` })
     .from(items).innerJoin(feeds, eq(feeds.id, items.feedId)).where(eq(feeds.ownerId, owner.id)).groupBy(items.feedId);
   const countMap = new Map(countRows.map((row) => [row.feedId, row]));
-  const feedDTOs: FeedDTO[] = feedRows.map(({ feed, fetch }) => ({
-    id: feed.id, title: feed.customTitle || feed.title || feed.url, url: feed.url, siteUrl: safeUrl(feed.siteUrl), faviconId: feed.faviconId ?? 0,
-    customTitle: feed.customTitle, sourceTitle: feed.title,
-    groupIds: memberships.filter((membership) => membership.feedId === feed.id).map((membership) => membership.groupId),
-    isSpark: feed.isSpark, requiresAuth: feed.requiresAuth, preventsHotlinking: feed.preventsHotlinking,
-    itemExcerpts: feed.itemExcerpts, itemAllows: feed.itemAllows, unreadCounts: feed.unreadCounts, sortOrder: feed.sortOrder,
-    unreadCount: toCount(countMap.get(feed.id)?.unread ?? 0), savedCount: toCount(countMap.get(feed.id)?.saved ?? 0), totalCount: toCount(countMap.get(feed.id)?.total ?? 0),
-    lastRefreshedAt: fetch?.lastRefreshedAt ?? 0, lastUpdatedAt: fetch?.lastUpdatedAt ?? 0, lastError: fetch?.lastError ?? null, fetchStatus: fetch?.status ?? "pending",
-  }));
+  const feedDTOs: FeedDTO[] = feedRows.map(feed => {
+    const fetch = fetchByFeed.get(feed.id);
+    return {
+      id: feed.id, title: feed.customTitle || feed.title || feed.url, url: feed.url, siteUrl: safeUrl(feed.siteUrl), faviconId: feed.faviconId ?? 0,
+      customTitle: feed.customTitle, sourceTitle: feed.title,
+      groupIds: groupsByFeed.get(feed.id) ?? [],
+      isSpark: feed.isSpark, requiresAuth: feed.requiresAuth, preventsHotlinking: feed.preventsHotlinking,
+      itemExcerpts: feed.itemExcerpts, itemAllows: feed.itemAllows, unreadCounts: feed.unreadCounts, sortOrder: feed.sortOrder,
+      unreadCount: toCount(countMap.get(feed.id)?.unread ?? 0), savedCount: toCount(countMap.get(feed.id)?.saved ?? 0), totalCount: toCount(countMap.get(feed.id)?.total ?? 0),
+      lastRefreshedAt: fetch?.lastRefreshedAt ?? 0, lastUpdatedAt: fetch?.lastUpdatedAt ?? 0, lastError: fetch?.lastError ?? null, fetchStatus: fetch?.status ?? "pending",
+    };
+  });
   const groupDTOs: GroupDTO[] = groupRows.map((group) => {
-    const memberIds = memberships.filter((membership) => membership.groupId === group.id).map((membership) => membership.feedId);
+    const memberIds = feedsByGroup.get(group.id) ?? [];
     const visible = feedDTOs.filter((feed) => memberIds.includes(feed.id) && !feed.isSpark);
     return { id: group.id, title: group.title, itemExcerpts: group.itemExcerpts, itemAllows: group.itemAllows, unreadCounts: group.unreadCounts, sortOrder: group.sortOrder,
       feedIds: memberIds, unreadCount: visible.reduce((n, feed) => n + feed.unreadCount, 0), totalCount: visible.reduce((n, feed) => n + feed.totalCount, 0) };
   });
   const kindling = feedDTOs.filter((feed) => !feed.isSpark);
   groupDTOs.unshift({ id: 0, title: "Kindling", ...inherited, feedIds: kindling.map((feed) => feed.id), unreadCount: kindling.reduce((n, feed) => n + feed.unreadCount, 0), totalCount: kindling.reduce((n, feed) => n + feed.totalCount, 0) });
-  return { feedRows: new Map(feedRows.map(({ feed }) => [feed.id, feed])), feeds: feedDTOs, groups: groupDTOs };
+  return { feedRows: new Map(feedRows.map(feed => [feed.id, feed])), feeds: feedDTOs, groups: groupDTOs };
 }
 
 /** Feed management and integrations must not advance a reading session or alter navigation. */
 export async function getNavigation(owner: OwnerContext): Promise<{ feeds: FeedDTO[]; groups: GroupDTO[] }> {
-  assertOwner(owner);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner, { readOnly: true });
+  assertOwnerContext(owner);
+  return withReaderSnapshot(owner, async (tx) => {
     const result = await navigation(owner, tx);
     return { feeds: result.feeds, groups: result.groups };
-  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+  });
 }
 
 /** Legacy wildcard semantics are deliberate: '%' and '_' remain SQL LIKE wildcards. */
@@ -95,7 +86,7 @@ function searchPredicate(search: string): SQL {
 }
 
 export async function getReaderView(owner: OwnerContext, query: ReaderQuery = {}, options: { capture?: boolean } = {}): Promise<ReaderView> {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const requestedPage = query.page === undefined ? 1 : integer(query.page, "page", 1, 1000000);
   const preferences = await getPreferences(owner);
   let captured: Awaited<ReturnType<typeof captureReaderView>>;
@@ -110,8 +101,7 @@ export async function getReaderView(owner: OwnerContext, query: ReaderQuery = {}
     captured = await captureReaderView(owner, query, preferences);
   }
   const { view, renderedAt, lastSessionAt } = captured;
-  const data = await getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner, { readOnly: true });
+  const data = await withReaderSnapshot(owner, async (tx) => {
     const nav = await navigation(owner, tx);
     const group = nav.groups.find((entry) => entry.id === view.groupId);
     if (!group) view.groupId = 0;
@@ -171,7 +161,7 @@ export async function getReaderView(owner: OwnerContext, query: ReaderQuery = {}
     return { ...common, items: pageRows.map(({ item, feed }) => itemDTO(item, feed, preferences, view, group, lastSessionAt)), links: [],
       totalItems: toCount(counts?.total ?? 0), page, hasMore,
       nextCursor: hasMore && last ? encodeCursor({ scope, snapshotId, publishedAt: last.publishedAt, id: last.id, page }) : null };
-  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+  });
   if (view.section === "hot") {
     const hot = await getHotPage(owner, { offset: view.hotStart, range: view.hotRange, page: requestedPage, perPage: preferences.perPage, useCelsius: preferences.useCelsius, lastSessionAt });
     return { ...data, links: hot.links, totalItems: hot.totalCandidates, hasMore: hot.hasMore };
@@ -180,15 +170,14 @@ export async function getReaderView(owner: OwnerContext, query: ReaderQuery = {}
 }
 
 export async function getItem(owner: OwnerContext, id: number, context: Pick<ReaderQuery, "deviceKey"> = {}): Promise<ItemDTO> {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   integer(id, "id", 1);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner, { readOnly: true });
+  return withReaderSnapshot(owner, async (tx) => {
     const [row] = await tx.select({ item: items, feed: feeds }).from(items).innerJoin(feeds, eq(items.feedId, feeds.id)).where(and(eq(items.id, id), eq(feeds.ownerId, owner.id))).limit(1);
     if (!row) throw new DomainError("Item not found.", "NOT_FOUND", 404);
     const preferences = await getPreferences(owner, tx);
     const { view, lastSessionAt } = await getViewState(owner, deviceKey(context.deviceKey), tx);
     const [group] = view.groupId ? await tx.select().from(groups).where(and(eq(groups.ownerId, owner.id), eq(groups.id, view.groupId))).limit(1) : [];
     return itemDTO(row.item, row.feed, preferences, view, group ? { ...group, feedIds: [], unreadCount: 0, totalCount: 0 } : undefined, lastSessionAt);
-  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+  });
 }
