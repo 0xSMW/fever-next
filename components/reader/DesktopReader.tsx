@@ -11,7 +11,8 @@ import { GroupsPane } from "./desktop/GroupsPane";
 import { RefreshStatus } from "./desktop/RefreshStatus";
 import { findItem, resolveOption, visibleGroups, visibleScopeFeeds } from "./model";
 import { MenuButton, MenuPopup, prefersReducedMotion, useMenu } from "./ui";
-import type { FeverHistoryState, ReaderStore } from "./useReader";
+import { readFeverHistory, updateFeverHistory } from "@/lib/client/reader-history";
+import type { ReaderStore } from "./useReader";
 
 interface Props {
   store: ReaderStore;
@@ -67,7 +68,7 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
     const y = store.takeRestoreScroll();
     programmaticUntil.current = Date.now() + 600;
     requestAnimationFrame(() => window.scrollTo(0, y ?? 0));
-    const panes = (window.history.state as { fever?: FeverHistoryState } | null)?.fever?.panes;
+    const panes = readFeverHistory()?.panes;
     if (y !== null && panes) {
       requestAnimationFrame(() => {
         const groups = document.getElementById("groups-scroller");
@@ -89,10 +90,10 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
       if (target.id !== "groups-scroller" && target.id !== "feeds-scroller") return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        const state = (window.history.state ?? {}) as { fever?: FeverHistoryState };
-        if (!state.fever) return;
-        const panes = { ...(state.fever.panes ?? {}), [target.id === "groups-scroller" ? "groups" : "feeds"]: target.scrollTop };
-        window.history.replaceState({ ...state, fever: { ...state.fever, panes } }, "", window.location.href);
+        const state = readFeverHistory();
+        if (!state) return;
+        const panes = { ...(state.panes ?? {}), [target.id === "groups-scroller" ? "groups" : "feeds"]: target.scrollTop };
+        updateFeverHistory({ panes });
       }, 300);
     };
     document.addEventListener("scroll", onPaneScroll, true);
@@ -185,7 +186,7 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
 
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
-      const state = (event.state as { fever?: FeverHistoryState } | null)?.fever;
+      const state = readFeverHistory(event.state);
       if (state?.view) store.navigate(state.view, { history: "none", restoreScroll: state.scrollY ?? 0 });
       else {
         const parsed = parseLocation(window.location.search);
@@ -204,8 +205,8 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
   }, [data, view]);
   const feedRows = useMemo(() => {
     if (!data) return [];
-    return ["feed-0", ...visibleScopeFeeds(data, view, list.items).map((f) => `feed-${f.id}`)];
-  }, [data, list.items, view]);
+    return ["feed-0", ...visibleScopeFeeds(data, view).map((f) => `feed-${f.id}`)];
+  }, [data, view]);
 
   const selectedRow = useCallback((pane: "groups" | "feeds") => {
     if (pane === "feeds") return `feed-${view.feedId}`;
@@ -249,13 +250,13 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
   const loadNextUnread = useCallback(() => {
     if (!data) return false;
     if (view.showFeeds && view.section !== "hot") {
-      const feed = visibleScopeFeeds(data, view, list.items).find((row) => row.unreadCount > 0 && row.id !== view.feedId);
+      const feed = visibleScopeFeeds(data, view).find((row) => row.unreadCount > 0 && row.id !== view.feedId);
       if (feed) { ctl.loadFeed(feed.id); return true; }
     }
     const group = visibleGroups(data, view).find((row) => row.id !== view.groupId && data.feeds.some((feed) => !feed.isSpark && feed.unreadCount > 0 && (feed.groupIds.includes(row.id) || row.feedIds.includes(feed.id))));
     if (group) { ctl.loadGroup(group.id); return true; }
     return false;
-  }, [ctl, data, list.items, view]);
+  }, [ctl, data, view]);
 
   const focusedItem = useCallback((): ItemDTO | undefined => {
     if (focus.startsWith("item-")) return list.items.find((item) => `item-${item.id}` === focus);
@@ -471,7 +472,7 @@ export function DesktopReader({ store, ctl, openManagement, openDialog, modalOpe
               />
             </div>
             {view.section !== "hot" && view.showFeeds ? (
-              <FeedsPane ctl={ctl} data={data} view={view} items={list.items} paneFocused={focus === "feeds"}
+              <FeedsPane ctl={ctl} data={data} view={view} paneFocused={focus === "feeds"}
                 cursor={cursor && cursor.startsWith("feed-") ? cursor : null} openMenu={openMenu} onDragState={setDragging} />
             ) : null}
           </div>
