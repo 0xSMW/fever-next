@@ -1,5 +1,6 @@
 "use client";
 
+import type { CommandResult } from "@/lib/command-contract";
 import { useId, useState } from "react";
 import { command, resetSession } from "@/lib/client/api";
 import {
@@ -60,34 +61,13 @@ const COUNT_LABELS: Record<string, string> = {
   favicons: "Favicons deleted",
 };
 
-interface Preview { token: string; summary: string; counts: Record<string, number>; confirmation: string; }
-
-function readPreview(value: Record<string, unknown>, operation: MaintenanceOperation): Preview {
-  const token = typeof value.token === "string" ? value.token : "";
-  if (!token) throw new Error("Fever did not return a confirmation token. Try the preview again.");
-  const counts = readCounts(value.counts);
-  const phrase = [value.confirmation, value.confirmationPhrase].find((entry) => typeof entry === "string" && entry.trim());
-  return {
-    token,
-    summary: typeof value.summary === "string" ? value.summary : "",
-    counts,
-    confirmation: typeof phrase === "string" ? phrase : operation,
-  };
-}
+type Preview = CommandResult<"maintenance.preview">;
 
 function countLabel(key: string): string {
   return COUNT_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase();
 }
 
-function readCounts(value: unknown): Record<string, number> {
-  const counts: Record<string, number> = {};
-  if (value && typeof value === "object") {
-    for (const [key, count] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof count === "number" && Number.isFinite(count)) counts[key] = count;
-    }
-  }
-  return counts;
-}
+
 
 function CountsTable({ counts, caption }: { counts: Record<string, number>; caption: string }) {
   if (Object.keys(counts).length === 0) return null;
@@ -158,7 +138,7 @@ export function MaintenanceForm({ initialOperation }: { initialOperation?: Maint
       previewAction.setError(localError({ currentPassword: "Enter your current password to continue." }));
       return;
     }
-    const result = await previewAction.run(async () => readPreview(await command("maintenance.preview", { operation, currentPassword: password }), operation));
+    const result = await previewAction.run(() => command("maintenance.preview", { operation, currentPassword: password }));
     if (!result.ok) return;
     setPassword("");
     setTyped("");
@@ -178,8 +158,8 @@ export function MaintenanceForm({ initialOperation }: { initialOperation?: Maint
       if (/TOKEN|EXPIRED|CONFIRM/i.test(code)) setPreview(null);
       return;
     }
-    const summary = typeof result.value.summary === "string" && result.value.summary ? result.value.summary : `${copy.title} finished.`;
-    setFinished({ summary, counts: readCounts(result.value.counts) });
+    const summary = `${copy.title} finished.`;
+    setFinished({ summary, counts: result.value.counts });
     setPreview(null);
     if (operation === "uninstall") {
       // Every session, including this one, ended with the installation.
