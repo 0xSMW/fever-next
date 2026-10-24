@@ -1,22 +1,18 @@
-import type { CommandAction } from "@/lib/contracts";
 import { changeCredentials, requireMutation } from "@/lib/auth";
-import { executeDomainCommand } from "@/lib/domain/commands";
+import { executeDomainCommand, isDomainCommandAction } from "@/lib/domain/commands";
 import { endpoint, HttpError, integer, json, readJson, record } from "@/lib/integrations/http";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-const domainActions = new Set<CommandAction>(["feed.create", "feed.update", "feed.delete", "feed.authenticate", "group.create", "group.update", "group.delete", "membership.add", "membership.remove", "sparks.update", "sparks.delete", "items.read", "items.unread", "items.save", "items.unsave", "scope.read", "items.undo", "preferences.save", "view.save", "blacklist.save"]);
 export const POST = (request: Request) => endpoint(async () => {
   const owner = await requireMutation(request), body = await readJson(request);
   if (typeof body.action !== "string") throw new HttpError("A command is required.");
   const payload = record(body.payload);
-  if (domainActions.has(body.action as CommandAction)) {
-    const result = await executeDomainCommand(owner, body.action as CommandAction, payload);
+  if (isDomainCommandAction(body.action)) {
     if (body.action === "feed.create" || body.action === "feed.authenticate") {
-      const { refreshAfterChange } = await import("@/lib/integrations/refresh");
-      const refresh = await refreshAfterChange(owner, { scope: "feed", id: integer(result.id, "id", 1), force: body.action === "feed.authenticate" });
-      return json({ ok: true, ...result, ...refresh });
+      const { changeSubscription } = await import("@/lib/integrations/subscriptions");
+      return json({ ok: true, ...await changeSubscription(owner, body.action, payload) });
     }
-    return json({ ok: true, ...result });
+    return json({ ok: true, ...await executeDomainCommand(owner, body.action, payload) });
   }
   switch (body.action) {
     case "account.update": return json(await changeCredentials(owner, payload));
