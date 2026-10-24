@@ -1,5 +1,5 @@
 import type { FeedRow } from '../db/schema';
-export interface OwnerContext { id: number; email: string; }
+export type { OwnerContext } from "../auth/owner";
 export interface RefreshScope { scope: 'all' | 'group' | 'feed'; id?: number; force?: boolean; faviconOnly?: boolean; }
 export interface InstallationContext { ownerId: number; installationId: 1; }
 export interface JobLease { id: number; ownerId: number; workerId: string; fence: number; force: boolean; faviconOnly: boolean; }
