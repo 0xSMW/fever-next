@@ -4,7 +4,6 @@ import { signOut } from "next-auth/react";
 import { ManagementDialog } from "@/components/manage/ManagementDialog";
 import { isManagementKind } from "@/components/manage/types";
 import { loginPath } from "@/components/pages/return-path";
-import type { ViewState } from "@/lib/contracts";
 import { BASE_PATH, appHref, errorMessage, getSession, resetSession } from "@/lib/client/api";
 import { LOGO_SRC, LOGO_SRC_2X } from "@/lib/client/assets";
 import { type LocationState, parseLocation, readerHref } from "@/lib/client/url-state";
@@ -17,11 +16,9 @@ import type { MobileSettings } from "./mobile/screens";
 import { TextButton } from "./ui";
 import { useReader } from "./useReader";
 
-/** Matches lib/config.ts defaultViewState; the server's stored view replaces it on first load. */
-const DEFAULT_VIEW: ViewState = {
-  section: "hot", previous: "hot", groupId: 0, feedId: 0, search: "", hasFocus: "groups",
-  showFeeds: true, showRead: true, hotStart: 0, hotRange: 7,
-};
+import { createDefaultViewState } from "@/lib/reader-policy";
+import { updateFeverHistory } from "@/lib/client/reader-history";
+
 const LAYOUT_KEY = "fever.layout";
 const MOBILE_KEY = "fever.mobile";
 const COMPACT_QUERY = "(max-width: 767px)";
@@ -107,12 +104,12 @@ function ReaderShell({ location }: { location: LocationState }) {
   const compact = layout.compact;
   const [mobileSettings, setMobileSettings] = useState<MobileSettings>(() => readJson<MobileSettings>(MOBILE_KEY) ?? { showRead: true, showFeeds: true });
   const overrides = useMemo(() => (compact ? { showRead: mobileSettings.showRead, showFeeds: mobileSettings.showFeeds } : undefined), [compact, mobileSettings]);
-  const store = useReader({ ...DEFAULT_VIEW, ...location.view }, { persistView: !compact, overrides });
+  const store = useReader({ ...createDefaultViewState(), ...location.view }, { persistView: !compact, overrides });
   const [manage, setManage] = useState<({ kind: ManagementKind } & ManagementTarget) | null>(null);
   const [dialog, setDialog] = useState<ReaderDialogRequest | null>(null);
 
-  const doSignOut = useCallback(() => {
-    store.flushReads();
+  const doSignOut = useCallback(async () => {
+    try { await store.flushReads(); } catch { return; }
     resetSession();
     void signOut({ callbackUrl: appHref("/login") });
   }, [store]);
@@ -121,7 +118,7 @@ function ReaderShell({ location }: { location: LocationState }) {
   const setCompact = useCallback((value: boolean) => {
     writeJson(LAYOUT_KEY, value ? "compact" : "desktop");
     store.setExtras({});
-    window.history.replaceState(window.history.state, "", readerHref(store.view, {}));
+    updateFeverHistory({ extras: {} }, readerHref(store.view, {}));
     setLayout({ compact: value, explicit: true });
   }, [store]);
 
