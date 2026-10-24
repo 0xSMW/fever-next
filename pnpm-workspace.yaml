@@ -1,0 +1,27 @@
+# Native tooling required by the locked application/import dependency graph.
+# Package lifecycle scripts are limited to the reviewed native-tool allowlist.
+# Reference: https://github.com/pnpm/pnpm/blob/main/pnpm11/docs/settings/build.md
+strictDepBuilds: true
+verifyDepsBeforeRun: error
+allowBuilds:
+  better-sqlite3@13.0.3: true
+  sharp@0.35.5: true
+  esbuild@0.18.20 || 0.25.12 || 0.28.2: true
+  unrs-resolver@1.7.8: true
+
+# Reviewed official current releases, requested for this validation phase.
+# All other dependencies retain the package manager release-age policy.
+minimumReleaseAgeExclude:
+  - next@16.4.3
+  - "@next/env@16.4.3"
+  - "@next/eslint-plugin-next@16.4.3"
+  - "@next/swc-darwin-arm64@16.4.3"
+  - "@next/swc-darwin-x64@16.4.3"
+  - "@next/swc-linux-arm64-gnu@16.4.3"
+  - "@next/swc-linux-arm64-musl@16.4.3"
+  - "@next/swc-linux-x64-gnu@16.4.3"
+  - "@next/swc-linux-x64-musl@16.4.3"
+  - "@next/swc-win32-arm64-msvc@16.4.3"
+  - "@next/swc-win32-x64-msvc@16.4.3"
+  - eslint-config-next@16.4.3
+  - dotenv@18.0.9
