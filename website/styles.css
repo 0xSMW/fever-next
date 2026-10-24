@@ -1,0 +1,829 @@
+/*
+	Recreation of the feedafever.com homepage as archived on 2023-07-01.
+	Desktop rules follow the original reset.css, shared.css and home.css.
+	The original removed focus outlines; this file keeps the browser defaults.
+*/
+
+/* reset: http://meyerweb.com/eric/tools/css/reset/ v1.0 | 20080212 */
+
+html, body, div, span, h1, h2, h3, p, a, em, img, strong,
+dl, dt, dd, ul, li, form, label, header, nav, main, section, footer
+{
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	vertical-align: baseline;
+	background: transparent;
+}
+
+header, nav, main, section, footer
+{
+	display: block;
+}
+
+ul
+{
+	list-style: none;
+}
+
+input,
+select,
+button,
+textarea
+{
+	margin: 0;
+}
+
+[hidden]
+{
+	display: none !important;
+}
+
+/* shared */
+/* red: #bf2726; Best Friends till 2726 */
+
+body
+{
+	font: 12px/18px Helvetica, Arial, sans-serif;
+	color: #2e2e2e;
+	background-color: #eaeaea;
+}
+
+#top
+{
+	background-color: #f6f6f6;
+}
+
+a
+{
+	color: #bf2726;
+}
+
+a:hover
+{
+	text-decoration: none;
+}
+
+.inner-container
+{
+	position: relative;
+	width: 888px;
+	margin: 0 auto;
+}
+
+.inlay
+{
+	clear: left;
+	border-width: 6px;
+	padding: 3px 0;
+	border-image: url(assets/bg-inlay.png) 6 6 6 6;
+}
+
+.masthead h1
+{
+	font-weight: normal;
+	line-height: inherit;
+}
+
+#logo
+{
+	background: url(assets/logo-small.png) 0 0 no-repeat;
+	display: block;
+	width: 94px;
+	height: 40px;
+	overflow: hidden;
+	text-indent: -9999px;
+	margin: 0 0 32px;
+}
+
+h2
+{
+	font-weight: normal;
+	font-size: 36px;
+	line-height: 36px;
+	margin: 0 0 12px;
+}
+
+.accent
+{
+	color: #bf2726;
+}
+
+.unaccent
+{
+	color: #999;
+}
+
+.row
+{
+	clear: left;
+}
+
+.footer
+{
+	color: #888;
+	border-top: 1px solid rgba(0,0,0,0.08);
+	font-size: 10px;
+	line-height: 12px;
+	padding: 12px 0 36px;
+}
+
+.footer a
+{
+	text-decoration: none;
+	color: #333;
+}
+
+.footer a:hover
+{
+	color: #bf2726;
+}
+
+.footer a img
+{
+	vertical-align: middle;
+	position: relative;
+	top: -2px;
+}
+
+dl
+{
+	width: 168px;
+	margin: 0 0 32px 12px;
+	float: left;
+}
+
+dl:first-child
+{
+	margin-left: 0;
+}
+
+dt
+{
+	color: #bf2726;
+	font-size: 14px;
+	line-height: 18px;
+	margin-bottom: 12px;
+}
+
+#mt
+{
+	position: absolute;
+	top: 8px;
+	right: 0;
+	background: url(assets/logo-mt.png) 0 0 no-repeat;
+	display: block;
+	width: 120px;
+	height: 12px;
+	overflow: hidden;
+	text-indent: -9999px;
+}
+
+#mt:hover
+{
+	opacity: 0.5;
+}
+
+form
+{
+	position: relative;
+}
+
+form .form-note
+{
+	position: absolute;
+	line-height: 12px;
+	bottom: 6px;
+	right: 6px;
+}
+
+form .form-aside
+{
+	position: absolute;
+	top: 0;
+	right: 3px;
+}
+
+/* the original laid fields out in tables with 6px cell padding */
+.fields
+{
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+}
+
+#create_account_form .fields
+{
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field
+{
+	position: relative;
+	padding: 6px;
+}
+
+.field:first-child,
+#create_account_form .field:nth-child(2)
+{
+	padding-top: 0;
+}
+
+.field.wide
+{
+	grid-column: 1 / -1;
+}
+
+.field label
+{
+	display: block;
+}
+
+/* the original positioned asides inside the 6px table cell padding */
+.field .form-aside
+{
+	top: 6px;
+	right: 9px;
+	line-height: 18px;
+}
+
+/* inputs */
+form span
+{
+	display: block;
+	background-color: #FFF;
+	padding: 1px;
+}
+
+form span input,
+form span select,
+form span textarea
+{
+	width: 100%;
+	box-sizing: border-box;
+}
+
+form span textarea
+{
+	display: block;
+	height: 160px;
+}
+
+/* buttons */
+button
+{
+	display: inline-block;
+	font: 10px/16px Helvetica, Arial, sans-serif;
+	height: 16px;
+	text-transform: lowercase;
+	background-color: #2e2e2e;
+	color: #FFF;
+	border: none;
+	border-radius: 8px;
+	padding: 0 8px;
+	margin: 0 0 0 6px;
+	cursor: pointer;
+}
+
+button:hover
+{
+	background-color: #808080;
+}
+
+button[disabled]
+{
+	background-color: #BBB;
+	cursor: default;
+}
+
+/* static recreation: submissions are intercepted and explained here */
+.form-status,
+.vid-status
+{
+	color: #bf2726;
+	font-weight: bold;
+}
+
+.form-status:empty,
+.vid-status:empty
+{
+	margin: 0 !important;
+}
+
+form .form-status
+{
+	margin: 12px 6px 0;
+}
+
+.vid-status
+{
+	margin: 6px 0 0;
+}
+
+.nav a:hover
+{
+	color: #333;
+}
+
+/* home */
+
+.section
+{
+	padding: 36px 0 32px;
+	background: url(assets/bg-thermometer.png) 0 0 no-repeat;
+}
+
+.sub-section
+{
+	float: left;
+	padding-top: 36px;
+	margin-top: -36px;
+}
+
+.nav
+{
+	position: absolute;
+	top: 48px;
+	right: 0;
+	display: flow-root;
+	padding: 0 4px;
+}
+
+.nav li
+{
+	float: left;
+	padding: 0 6px;
+}
+
+.nav a
+{
+	text-decoration: none;
+	font-weight: bold;
+}
+
+.nav a.active
+{
+	font-weight: normal;
+	color: #999;
+}
+
+.masthead
+{
+	background: none;
+	position: relative;
+	padding: 52px 0 0;
+}
+
+.masthead p
+{
+	font-size: 18px;
+	line-height: 24px;
+	margin-bottom: 24px;
+	color: #999;
+	width: 430px;
+}
+
+.masthead p img
+{
+	float: right;
+	margin-top: -6px;
+}
+
+.masthead p strong
+{
+	font-weight: normal;
+	color: #333;
+}
+
+.masthead p em
+{
+	font-style: normal;
+	color: #bf2726;
+}
+
+#pile
+{
+	position: absolute;
+	top: 108px;
+	right: 50px;
+}
+
+#minted
+{
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+
+#features
+{
+	background-image: url(assets/bg-thermometer-short.png);
+}
+
+#features p
+{
+	width: 430px;
+	margin: 0 0 32px 20px;
+	float: left;
+}
+
+#features p strong
+{
+	padding-right: 0.25em;
+}
+
+#features p:first-child
+{
+	margin-left: 0;
+}
+
+#features img
+{
+	display: block;
+	border: 1px solid rgba(0,0,0,0.1);
+	float: left;
+	margin: 0 11px 0 -1px;
+}
+
+#features ul
+{
+	margin: 0 -6px;
+	display: flow-root;
+}
+
+#features ul:first-child
+{
+	padding-bottom: 12px;
+}
+
+#features li
+{
+	font-weight: bold;
+	line-height: 16px;
+	padding: 0 12px 0 16px;
+	background: url(assets/bg-bullet.png) 2px 4px no-repeat;
+	float: left;
+	width: 140px;
+	margin-left: 12px;
+}
+
+#features li:first-child
+{
+	margin-left: 8px;
+	padding-right: 4px;
+}
+
+#demo
+{
+	position: relative;
+}
+
+#demo p
+{
+	width: 320px;
+	display: flow-root;
+}
+
+#demo p img
+{
+	float: left;
+	margin: 0 6px 0 0;
+}
+
+#demo .how-to
+{
+	font-size: 14px;
+	line-height: 24px;
+	margin-bottom: 24px;
+	color: #bf2726;
+	width: 348px;
+}
+
+#vid
+{
+	position: absolute;
+	bottom: 28px;
+	right: -6px;
+	padding: 6px;
+	background-color: rgba(0,0,0,0.05);
+	border: none;
+	border-radius: 6px;
+}
+
+#vid video
+{
+	display: block;
+	width: 528px;
+	height: 400px;
+	background-color: #e2e2e2;
+}
+
+#vid .vid-status
+{
+	width: auto;
+}
+
+#account,
+#support
+{
+	display: flow-root;
+}
+
+#account p
+{
+	margin-top: 18px;
+}
+
+#purchase
+{
+	width: 168px;
+}
+
+#create-account,
+#login,
+#contact
+{
+	width: 348px;
+	margin-left: 12px;
+}
+
+#login p
+{
+	width: 168px;
+}
+
+#login
+{
+	position: relative;
+}
+
+#login form
+{
+	position: absolute;
+	top: 84px;
+	right: 0;
+	width: 156px;
+}
+
+#login form .form-status
+{
+	width: auto;
+}
+
+/* the original placed these links inline after the floated answers */
+#answers .more
+{
+	clear: left;
+}
+
+#contact .response-time
+{
+	margin-top: 12px;
+}
+
+/* narrow screens: same content and artwork, single flowing column */
+@media (max-width: 920px)
+{
+	html
+	{
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+	}
+
+	.inner-container
+	{
+		width: auto;
+		max-width: 888px;
+		padding: 0 16px;
+	}
+
+	img,
+	video
+	{
+		max-width: 100%;
+	}
+
+	img
+	{
+		height: auto;
+	}
+
+	#mt
+	{
+		right: 16px;
+	}
+
+	.masthead
+	{
+		display: flex;
+		flex-direction: column;
+	}
+
+	.masthead h1
+	{
+		order: -2;
+	}
+
+	.masthead nav
+	{
+		order: -1;
+	}
+
+	#logo
+	{
+		margin-bottom: 8px;
+	}
+
+	.masthead p
+	{
+		width: auto;
+		max-width: 430px;
+	}
+
+	.nav
+	{
+		position: static;
+		display: flex;
+		flex-wrap: wrap;
+		margin: 0 -8px 16px;
+		padding: 0;
+	}
+
+	.nav li
+	{
+		float: none;
+		padding: 0;
+	}
+
+	.nav a
+	{
+		display: block;
+		padding: 12px 8px;
+	}
+
+	#pile
+	{
+		position: static;
+		height: auto;
+		margin: 0 auto 24px;
+	}
+
+	#features p
+	{
+		display: flow-root;
+		float: none;
+		width: auto;
+		margin: 0 0 24px;
+	}
+
+	#features ul
+	{
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: 8px 12px;
+		margin: 0;
+	}
+
+	#features li,
+	#features li:first-child
+	{
+		float: none;
+		width: auto;
+		margin: 0;
+		padding: 0 0 0 16px;
+	}
+
+	#demo p,
+	#demo .how-to
+	{
+		width: auto;
+	}
+
+	#vid
+	{
+		position: static;
+		margin-top: 12px;
+	}
+
+	#vid video
+	{
+		width: 100%;
+		height: auto;
+		aspect-ratio: 528 / 400;
+	}
+
+	.sub-section
+	{
+		float: none;
+		padding-top: 0;
+		margin: 0 0 32px;
+	}
+
+	.sub-section:last-child
+	{
+		margin-bottom: 0;
+	}
+
+	#purchase,
+	#create-account,
+	#login,
+	#contact
+	{
+		width: auto;
+		margin-left: 0;
+	}
+
+	#login p
+	{
+		width: auto;
+	}
+
+	#login form
+	{
+		position: static;
+		width: auto;
+		max-width: 348px;
+		margin-top: 18px;
+	}
+
+	#create-account,
+	#contact
+	{
+		max-width: 520px;
+	}
+
+	#answers .row
+	{
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+		column-gap: 12px;
+	}
+
+	dl,
+	dl:first-child
+	{
+		float: none;
+		width: auto;
+		margin: 0 0 24px;
+	}
+
+	#minted
+	{
+		position: static;
+		margin-top: 6px;
+	}
+
+	/* avoid iOS zoom on focus and give touch-sized buttons */
+	input,
+	select,
+	textarea
+	{
+		font-size: 16px;
+	}
+
+	button
+	{
+		height: auto;
+		font-size: 13px;
+		line-height: 20px;
+		padding: 6px 14px;
+		border-radius: 16px;
+	}
+}
+
+@media (max-width: 560px)
+{
+	#create_account_form .fields
+	{
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	#create_account_form .field:nth-child(2)
+	{
+		padding-top: 6px;
+	}
+
+	#features img,
+	#demo p img
+	{
+		float: none;
+		margin: 0 0 8px -1px;
+	}
+
+	#demo p img
+	{
+		margin-left: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce)
+{
+	*,
+	*::before,
+	*::after
+	{
+		animation: none !important;
+		transition: none !important;
+		scroll-behavior: auto !important;
+	}
+}
