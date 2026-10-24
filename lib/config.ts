@@ -1,5 +1,3 @@
-import type { Preferences, ViewState } from "./contracts";
-
 export const SCHEMA_VERSION = 2;
 export const CONTENT_POLICY_VERSION = 1;
 export const IDENTITY_VERSION = 1;
@@ -8,32 +6,7 @@ export const NORMALIZATION_VERSION = 1;
 export const DEFAULT_OWNER_ID = 1;
 export const DEFAULT_FAVICON_ID = 1;
 
-/** Fresh-install defaults preserve source preferences; autoUpdate is inert legacy metadata. */
-export const defaultPreferences: Preferences = {
-  useCelsius: false, refreshInterval: 15, itemExpiration: 10,
-  newWindow: true, unreadCounts: false, layout: 0, itemExcerpts: true,
-  itemAllows: 1, sortOrder: 0, autoSpark: false, perPage: 20,
-  autoRead: true, mobileReadOnScroll: true, mobileReadOnBackOut: true,
-  mobileViewInApp: true, autoReload: false, autoRefresh: true,
-  autoUpdate: true, toggleClick: true, anonymize: false, sessionTimeout: 6,
-  blacklist: "", share: false, shareProtected: false,
-  services: [
-    { name: "Email", url: "mailto:?subject=%t&body=%u", key: "e", enabled: true },
-    { name: "Delicious", url: "http://delicious.com/save?url=%u&title=%t&v=5&noui=1&jump=doclose", key: "d", enabled: true },
-    { name: "Instapaper", url: "http://instapaper.com/edit?url=%u&title=%t&summary=%e", key: "i", enabled: true },
-    { name: "Twitter", url: "http://twitter.com/?status=%t%20%u", key: "t", enabled: true },
-  ],
-};
-export const defaultViewState: ViewState = {
-  section: "hot", previous: "hot", groupId: 0, feedId: 0, search: "", hasFocus: "groups",
-  showFeeds: true, showRead: true, hotStart: 0, hotRange: 7,
-};
-export const DEFAULT_PREFERENCES = defaultPreferences;
-export const DEFAULT_VIEW_STATE = defaultViewState;
-export function createDefaultPreferences(): Preferences {
-  return { ...defaultPreferences, services: defaultPreferences.services.map((service) => ({ ...service })) };
-}
-export function createDefaultViewState(): ViewState { return { ...defaultViewState }; }
+export { defaultPreferences, defaultViewState, DEFAULT_PREFERENCES, DEFAULT_VIEW_STATE, createDefaultPreferences, createDefaultViewState } from "./reader-policy";
 
 export class ConfigurationError extends Error {
   constructor(message: string) { super(message); this.name = "ConfigurationError"; }
