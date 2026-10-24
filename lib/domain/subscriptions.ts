@@ -1,6 +1,6 @@
 import "server-only";
+import type { CreateFeedResult } from "../command-contract";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { getDb } from "../db/client";
 import { legacyTextEqual } from "../db/collation";
 import { feedCredentials, feedFetchState, feedGroups, feeds, groups, itemIdentityAliases, items, linkOccurrences } from "../db/schema";
 import { encryptSecret, encryptionKeyId } from "../crypto";
@@ -8,8 +8,8 @@ import { canonicalUrlKey, checksum, normalizeUrl } from "../legacy-url";
 import { DomainError, boolean, confirmed, ids, integer, object, rejectUnknown, text } from "../validation";
 import { parseFeedInput, parseGroupInput } from "./input";
 import { journal } from "./journal";
-import { beginDomainMutation } from "./guard";
-import { assertOwner, getPreferences, resetRemovedSelection } from "./preferences";
+import { assertOwnerContext, withDomainMutation } from "./transaction";
+import { getPreferences, resetRemovedSelection } from "./preferences";
 import type { DomainDb, MutationOrigin, OwnerContext } from "./types";
 
 async function ownFeeds(db: DomainDb, owner: OwnerContext, selection: number[]) {
@@ -23,12 +23,6 @@ async function ownGroups(db: DomainDb, owner: OwnerContext, selection: number[])
   const rows = await db.select().from(groups).where(and(eq(groups.ownerId, owner.id), inArray(groups.id, selection))).orderBy(groups.id).for("update");
   if (rows.length !== selection.length) throw new DomainError("One or more groups no longer exist.", "NOT_FOUND", 404);
   return rows;
-}
-
-async function subscriptionLock(db: DomainDb, owner: OwnerContext) {
-  await beginDomainMutation(db, owner);
-  // All relationship writes take one installation lock, so replacements cannot lose concurrent membership edits.
-  await db.execute(sql`SELECT pg_advisory_xact_lock(${owner.id}, 9183)`);
 }
 
 async function snapshotFeeds(db: DomainDb, owner: OwnerContext, selection: number[], includeContent = false) {
@@ -71,44 +65,41 @@ async function writeCredentials(db: DomainDb, feedId: number, input: { username?
   await db.insert(feedFetchState).values({ feedId }).onConflictDoUpdate({ target: feedFetchState.feedId, set: { nextAttemptAt: 0, lastError: null, status: "pending", fence: sql`${feedFetchState.fence} + 1`, updatedAt: new Date() } });
 }
 
-export async function createFeed(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+export async function createFeed(owner: OwnerContext, payload: unknown): Promise<CreateFeedResult> {
+  assertOwnerContext(owner);
   const input = parseFeedInput(payload);
-  const url = input.url!;
+  const url = input.url;
   const canonicalUrl = normalizeUrl(url);
   const urlKey = canonicalUrlKey(canonicalUrl);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     await ownGroups(tx, owner, input.groupIds ?? []);
     const [existing] = await tx.select().from(feeds).where(and(eq(feeds.ownerId, owner.id), eq(feeds.urlKey, urlKey))).for("update");
     if (existing) {
       if (existing.canonicalUrl !== canonicalUrl) throw new DomainError("A URL identity collision requires operator review.", "IDENTITY_COLLISION", 409);
       const before = await snapshotFeeds(tx, owner, [existing.id]);
-      if (input.groupIds?.length) await tx.insert(feedGroups).values(input.groupIds.map((groupId) => ({ feedId: existing.id, groupId }))).onConflictDoNothing();
+      const added = input.groupIds?.length ? await tx.insert(feedGroups).values(input.groupIds.map((groupId) => ({ feedId: existing.id, groupId }))).onConflictDoNothing().returning() : [];
       const after = await snapshotFeeds(tx, owner, [existing.id]);
       await journal(tx, owner, "feed.subscribe-existing", before, after, [existing.id]);
-      return { id: existing.id, created: false };
+      return { id: existing.id, created: false, membershipsAdded: added.length };
     }
     const preferences = await getPreferences(owner, tx);
-    const { id: _id, groupIds, username, password, clearCredentials, ...fields } = input;
-    void _id;
+    const { groupIds, username, password, clearCredentials, ...fields } = input;
     const [feed] = await tx.insert(feeds).values({ ...fields, ownerId: owner.id, url, originalUrl: url, canonicalUrl, urlKey, urlChecksum: checksum(canonicalUrl),
       title: input.title ?? "", customTitle: input.title || null, domain: new URL(url).hostname, isSpark: input.isSpark ?? preferences.autoSpark }).returning();
     await tx.insert(feedFetchState).values({ feedId: feed.id });
-    if (groupIds?.length) await tx.insert(feedGroups).values(groupIds.map((groupId) => ({ feedId: feed.id, groupId })));
+    const added = groupIds?.length ? await tx.insert(feedGroups).values(groupIds.map((groupId) => ({ feedId: feed.id, groupId }))).returning() : [];
     await writeCredentials(tx, feed.id, { username, password, clearCredentials });
     const after = await snapshotFeeds(tx, owner, [feed.id]);
     const operationId = await journal(tx, owner, "feed.create", {}, after, [feed.id]);
-    return { id: feed.id, created: true, operationId };
+    return { id: feed.id, created: true, membershipsAdded: added.length, operationId };
   });
 }
 
 export async function updateFeed(owner: OwnerContext, payload: unknown, origin: MutationOrigin = "ui") {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = parseFeedInput(payload, true);
-  const id = input.id!;
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  const id = input.id;
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     const before = await snapshotFeeds(tx, owner, [id]);
     const previous = before.feeds[0];
     const { id: _id, groupIds, username, password, clearCredentials, title, ...fields } = input;
@@ -143,13 +134,12 @@ export async function authenticateFeed(owner: OwnerContext, payload: unknown) {
 }
 
 export async function deleteFeed(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   rejectUnknown(input, ["id", "confirm"]);
   const id = integer(input.id, "id", 1);
   confirmed(input.confirm);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     const before = await snapshotFeeds(tx, owner, [id], true);
     await tx.delete(feeds).where(and(eq(feeds.ownerId, owner.id), eq(feeds.id, id)));
     await resetRemovedSelection(tx, owner, [id]);
@@ -159,17 +149,15 @@ export async function deleteFeed(owner: OwnerContext, payload: unknown) {
 }
 
 export async function createGroup(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = parseGroupInput(payload);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     await ownFeeds(tx, owner, input.feedIds ?? []);
     if (input.title.toLowerCase() === "kindling") return { id: 0, created: false };
     const candidates = await tx.select({ id: groups.id, title: groups.title }).from(groups).where(eq(groups.ownerId, owner.id)).orderBy(groups.id);
     const existing = candidates.find(group => legacyTextEqual(group.title, input.title));
     if (existing) return { id: existing.id, created: false };
-    const { feedIds, id: _id, ...fields } = input;
-    void _id;
+    const { feedIds, ...fields } = input;
     const [group] = await tx.insert(groups).values({ ownerId: owner.id, ...fields }).returning();
     const memberships = (feedIds ?? []).map((feedId) => ({ feedId, groupId: group.id }));
     if (memberships.length) await tx.insert(feedGroups).values(memberships);
@@ -179,12 +167,11 @@ export async function createGroup(owner: OwnerContext, payload: unknown) {
 }
 
 export async function updateGroup(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = parseGroupInput(payload, true);
   if (input.title.toLowerCase() === "kindling") throw new DomainError("Kindling is the built-in group and cannot be used as a custom group name.");
-  const id = input.id!;
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  const id = input.id;
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     const previous = await ownGroups(tx, owner, [id]);
     const candidates = await tx.select({ id: groups.id, title: groups.title }).from(groups).where(eq(groups.ownerId, owner.id));
     const duplicate = candidates.find(group => group.id !== id && legacyTextEqual(group.title, input.title));
@@ -204,14 +191,13 @@ export async function updateGroup(owner: OwnerContext, payload: unknown) {
 }
 
 export async function deleteGroup(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   rejectUnknown(input, ["id", "unsubscribe", "confirm"]);
   const id = integer(input.id, "id", 1);
   const unsubscribe = input.unsubscribe === undefined ? false : boolean(input.unsubscribe, "unsubscribe");
   confirmed(input.confirm);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     const previousGroups = await ownGroups(tx, owner, [id]);
     const memberships = await tx.select().from(feedGroups).where(eq(feedGroups.groupId, id));
     const members = await ownFeeds(tx, owner, memberships.map((row) => row.feedId));
@@ -227,13 +213,12 @@ export async function deleteGroup(owner: OwnerContext, payload: unknown) {
 }
 
 export async function changeMembership(owner: OwnerContext, payload: unknown, add: boolean) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   rejectUnknown(input, ["feedId", "groupId"]);
   const feedId = integer(input.feedId, "feedId", 1);
   const groupId = integer(input.groupId, "groupId", 1);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     await ownFeeds(tx, owner, [feedId]);
     await ownGroups(tx, owner, [groupId]);
     const condition = and(eq(feedGroups.feedId, feedId), eq(feedGroups.groupId, groupId));
@@ -248,12 +233,11 @@ export async function changeMembership(owner: OwnerContext, payload: unknown, ad
 }
 
 export async function updateSparks(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   rejectUnknown(input, ["feedIds"]);
   const selection = ids(input.feedIds, "feedIds");
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     await ownFeeds(tx, owner, selection);
     const before = await tx.select().from(feeds).where(eq(feeds.ownerId, owner.id)).orderBy(feeds.id).for("update");
     const desired = new Set(selection);
@@ -269,12 +253,11 @@ export async function updateSparks(owner: OwnerContext, payload: unknown) {
 }
 
 export async function deleteSparks(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   rejectUnknown(input, ["confirm"]);
   confirmed(input.confirm);
-  return getDb().transaction(async (tx) => {
-    await subscriptionLock(tx, owner);
+  return withDomainMutation(owner, "subscriptions", async (tx) => {
     const sparks = await tx.select({ id: feeds.id }).from(feeds).where(and(eq(feeds.ownerId, owner.id), eq(feeds.isSpark, true)));
     const selection = sparks.map((feed) => feed.id);
     const before = await snapshotFeeds(tx, owner, selection, true);
