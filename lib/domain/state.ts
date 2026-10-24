@@ -1,13 +1,11 @@
 import "server-only";
 import { and, eq, gt, inArray, lt, max, sql, type SQL } from "drizzle-orm";
 import type { Section } from "../contracts";
-import { getDb } from "../db/client";
 import { feedGroups, feeds, groups, items, stateOperations } from "../db/schema";
 import { epochNow } from "../db/numbers";
 import { DomainError, boolean, ids, integer, object } from "../validation";
 import { journal } from "./journal";
-import { beginDomainMutation } from "./guard";
-import { assertOwner } from "./preferences";
+import { assertOwnerContext, withDomainMutation } from "./transaction";
 import type { DomainDb, MutationOrigin, OwnerContext, ScopeReadInput } from "./types";
 
 type StateAction = "read" | "unread" | "save" | "unsave";
@@ -44,22 +42,18 @@ async function applyStates(db: DomainDb, owner: OwnerContext, action: StateActio
 }
 
 export async function mutateItems(owner: OwnerContext, action: StateAction, itemIds: number[], options: { origin?: MutationOrigin; section?: Section } = {}) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const selection = ids(itemIds);
   if (!selection.length) return { changed: 0, operationId: null };
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${owner.id}, 9184)`);
+  return withDomainMutation(owner, "reading-state", async (tx) => {
     return applyStates(tx, owner, action, inArray(items.id, selection), options.origin ?? "ui", selection);
   });
 }
 
 export async function markScopeRead(owner: OwnerContext, input: ScopeReadInput, origin: MutationOrigin = "ui") {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const before = integer(input.before, "before", 0);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${owner.id}, 9184)`);
+  return withDomainMutation(owner, "reading-state", async (tx) => {
     let scope: SQL = sql`true`;
     if (input.scope === "feed") {
       const id = integer(input.id, "id", 1);
@@ -80,11 +74,8 @@ export async function markScopeRead(owner: OwnerContext, input: ScopeReadInput, 
 
 /** Source-compatible recent-read action, including its cross-Spark 15-second update window. */
 export async function undoRecentlyRead(owner: OwnerContext, section: Section, origin: MutationOrigin = "ui") {
-  assertOwner(owner);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
-    // Serialize recent-read selection with other owner state commands, including empty histories.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${owner.id}, 9184)`);
+  assertOwnerContext(owner);
+  return withDomainMutation(owner, "reading-state", async (tx) => {
     const [latest] = await tx.select({ readAt: max(items.readAt) }).from(items).innerJoin(feeds, eq(items.feedId, feeds.id))
       .where(and(eq(feeds.ownerId, owner.id), section === "sparks" ? undefined : eq(feeds.isSpark, false)));
     if (!latest?.readAt) return { changed: 0, operationId: null };
@@ -94,11 +85,9 @@ export async function undoRecentlyRead(owner: OwnerContext, section: Section, or
 
 /** Exact journal undo is separate from the legacy command and refuses to overwrite a later mutation. */
 export async function undoOperation(owner: OwnerContext, operationId: number, origin: MutationOrigin = "ui") {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   integer(operationId, "operationId", 1);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(${owner.id}, 9184)`);
+  return withDomainMutation(owner, "reading-state", async (tx) => {
     const [operation] = await tx.select().from(stateOperations).where(and(eq(stateOperations.ownerId, owner.id), eq(stateOperations.id, operationId))).for("update");
     if (!operation) throw new DomainError("Reading operation not found.", "NOT_FOUND", 404);
     if (operation.undoneAt) return { changed: 0, operationId: null };
