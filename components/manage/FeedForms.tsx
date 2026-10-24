@@ -1,14 +1,18 @@
 "use client";
+import { globalDisplay, type DisplayValues, DisplayOverrides } from "../forms/DisplayOverrides";
 
 import { useId, useMemo, useState } from "react";
 import { apiPost, command, errorMessage } from "@/lib/client/api";
-import type { FeedCandidate, FeedDTO, FeedInput, ReaderView } from "@/lib/contracts";
+import type { FeedCandidate, FeedDTO, ReaderView } from "@/lib/contracts";
 import { feedRefreshFailed } from "../reader/model";
+import { TabPanel, type TabSpec } from "../forms/Tabs";
 import {
-  Button, Checkbox, DisplayOverrides, ErrorBanner, Footer, Frame, INHERIT_ALL, MultiSelect, Row, StatusBanner,
-  TabPanel, TextField, displayFrom, feedTitle, fieldError, globalDisplay, localError, numberResult,
-  plural, safeHttpUrl, useAction, usePanel, type DisplayValues, type FormError, type TabSpec,
+  Button, Checkbox, ErrorBanner, Footer, Frame, MultiSelect, Row, StatusBanner,
+  TextField, feedTitle, fieldError, localError,
+  plural, safeHttpUrl, useAction, usePanel, type FormError,
 } from "./shared";
+
+import { createFeedDraft, managementFeedInput, updateFeedInput } from "../forms/feed-draft";
 
 type FeedTab = "feed" | "display" | "authentication";
 
@@ -58,15 +62,16 @@ export function FeedEditor({ mode, feed, view, initialTab = "feed" }: {
   const preferences = view.preferences;
 
   const defaultGroupIds = mode === "add" && view.view.section === "kindling" && view.view.groupId > 0 ? [view.view.groupId] : [];
+  const [initialDraft] = useState(() => createFeedDraft(preferences, feed, defaultGroupIds));
   const [tab, setTab] = useState<FeedTab>(initialTab);
   const [url, setUrl] = useState(feed?.url ?? "");
   // Only the owner's override is editable; a blank title follows the feed's own.
-  const [title, setTitle] = useState(mode === "edit" ? feed?.customTitle ?? "" : "");
-  const [groupIds, setGroupIds] = useState<number[]>(feed?.groupIds ?? defaultGroupIds);
-  const [isSpark, setIsSpark] = useState(mode === "edit" ? !!feed?.isSpark : !!preferences.autoSpark);
+  const [title, setTitle] = useState(initialDraft.title);
+  const [groupIds, setGroupIds] = useState<number[]>(initialDraft.groupIds);
+  const [isSpark, setIsSpark] = useState(initialDraft.isSpark);
   const [sparkNote, setSparkNote] = useState(false);
-  const [preventsHotlinking, setPreventsHotlinking] = useState(!!feed?.preventsHotlinking);
-  const [display, setDisplay] = useState<DisplayValues>(mode === "edit" ? displayFrom(feed) : INHERIT_ALL);
+  const [preventsHotlinking, setPreventsHotlinking] = useState(initialDraft.preventsHotlinking);
+  const [display, setDisplay] = useState<DisplayValues>(initialDraft.display);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [clearCredentials, setClearCredentials] = useState(false);
@@ -106,15 +111,7 @@ export function FeedEditor({ mode, feed, view, initialTab = "feed" }: {
     return localError(fields);
   };
 
-  const payload = (): FeedInput => {
-    const input: FeedInput = {
-      url: normalizeFeedUrl(url), title: title.trim(), groupIds, isSpark, preventsHotlinking, ...display,
-    };
-    if (mode === "edit" && feed) input.id = feed.id;
-    if (clearCredentials) input.clearCredentials = true;
-    else if (username || password) { input.username = username; input.password = password; }
-    return input;
-  };
+  const draft = () => ({ title, groupIds, isSpark, preventsHotlinking, display, username, password, clearCredentials });
 
   const submit = async () => {
     setDuplicate(null);
@@ -126,15 +123,12 @@ export function FeedEditor({ mode, feed, view, initialTab = "feed" }: {
       return;
     }
     const result = await save.run(async () => {
-      const response = await command(mode === "add" ? "feed.create" : "feed.update", payload() as unknown as Record<string, unknown>);
-      const id = numberResult(response, "id") ?? feed?.id;
-      if (mode === "add" && response.created === false) return { id, duplicate: true, refreshWarning: null as string | null };
-      let refreshWarning: string | null = null;
-      if (mode === "add" && id) {
-        try { await command("refresh.start", { scope: "feed", id }); }
-        catch (caught) { refreshWarning = errorMessage(caught, "Its first refresh could not be queued."); }
+      if (mode === "edit" && feed) {
+        const response = await command("feed.update", updateFeedInput(feed.id, normalizeFeedUrl(url), draft()));
+        return { id: response.id, duplicate: false, refreshWarning: null };
       }
-      return { id, duplicate: false, refreshWarning };
+      const response = await command("feed.create", managementFeedInput(normalizeFeedUrl(url), draft()));
+      return { id: response.id, duplicate: !response.created, refreshWarning: response.warnings.join(" ") || null };
     });
     if (!result.ok) {
       const errorTab = firstErrorTab(result.error, ["feed", "display", "authentication"]);
