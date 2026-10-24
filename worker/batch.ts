@@ -1,11 +1,12 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { getConfig } from '../lib/config';
 import { getPool } from '../lib/db/client';
 import { enqueueScheduledRefresh, installationContext } from '../lib/jobs';
 import { claimFeed, claimJob, newWorkerId, releaseJob, releaseWorkerLeases, renewLease } from '../lib/jobs/worker';
 import { LostLeaseError, type FeedLease, type InstallationContext, type JobLease } from '../lib/jobs/types';
-import { refreshOne } from './index';
+import { refreshOne } from './refresh';
+import { drainJob } from './job';
+import { heartbeat, stopHeartbeat } from '../lib/jobs/heartbeat';
 
 const LOCK = "hashtextextended('fever:serverless-refresh',0)";
 const DEFAULT_BUDGET_MS = 210_000;
@@ -48,13 +49,7 @@ const dependencies: BatchDependencies = {
   concurrency: () => { const config = getConfig(); return batchLaneCount(config.workerConcurrency, config.databasePoolMax); }, workerId: newWorkerId,
   enqueue: enqueueScheduledRefresh, claimJob, claimFeed, refresh: refreshOne,
   renew: renewLease, releaseJob, releaseWorker: releaseWorkerLeases,
-  heartbeat: async (context, workerId, session) => {
-    await (session ?? getPool()).query(`INSERT INTO worker_heartbeats(worker_id,owner_id) VALUES($1,$2)
-      ON CONFLICT(worker_id) DO UPDATE SET heartbeat_at=clock_timestamp(),stopped_at=NULL`, [workerId, context.ownerId]);
-  },
-  stopHeartbeat: async (workerId, session) => {
-    await (session ?? getPool()).query('UPDATE worker_heartbeats SET stopped_at=clock_timestamp(),active_job_id=NULL WHERE worker_id=$1', [workerId]);
-  },
+  heartbeat, stopHeartbeat,
 };
 
 /** Finite serverless drain. The session lock uses a dedicated checked-out connection. */
@@ -103,13 +98,7 @@ export async function runRefreshBatch(options: BatchOptions = {}, deps: BatchDep
           const job = await deps.claimJob(context, laneId);
           if (!job) return;
           result.jobs++;
-          while (!controller.signal.aborted) {
-            const feed = await deps.claimFeed(job);
-            if (!feed) { await deps.releaseJob(job); break; }
-            await deps.refresh(feed, controller.signal);
-            result.feeds++;
-            if (!controller.signal.aborted) await deps.renew(job);
-          }
+          await drainJob(job, controller.signal, { ...deps, completedFeed: () => { result.feeds++; } });
         }
       })().catch(error => {
         if (controller.signal.aborted && error instanceof LostLeaseError) return;
@@ -145,22 +134,4 @@ export async function runRefreshBatch(options: BatchOptions = {}, deps: BatchDep
     if (unlockError) throw unlockError;
     if (failedCleanup) throw failedCleanup.reason;
   }
-}
-
-/** Authentication completes before any batch dependency can touch the database. */
-export function createRefreshHandler(run: (options: BatchOptions) => Promise<BatchResult> = runRefreshBatch, secret: () => string | undefined = () => process.env.CRON_SECRET) {
-  return async (request: Request): Promise<Response> => {
-    const expected = secret();
-    if (!expected) return Response.json({ error: 'Scheduled refresh is not configured.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
-    const actual = request.headers.get('authorization') ?? '';
-    const expectedBytes = Buffer.from(`Bearer ${expected}`);
-    const actualBytes = Buffer.from(actual);
-    if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) return Response.json({ error: 'Unauthorized.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
-    try {
-      const result = await run({ signal: request.signal });
-      return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
-    } catch (error) {
-      return Response.json({ error: error instanceof BatchConfigurationError ? error.message : 'Scheduled refresh failed.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
-    }
-  };
 }
