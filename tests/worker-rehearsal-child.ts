@@ -1,9 +1,9 @@
 import { safeFetch } from '../lib/ingest/http';
-import { main } from '../worker';
+import { main } from '../worker/index';
 import { closeDatabase } from '../lib/db/client';
 import { closeHostCoordinator } from '../lib/ingest/host-limits';
 import { readFile } from 'node:fs/promises';
-import { refreshOne } from '../worker';
+import { refreshOne } from '../worker/refresh';
 import { runRefreshBatch } from '../worker/batch';
 import { LostLeaseError, type FeedLease } from '../lib/jobs/types';
 
