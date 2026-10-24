@@ -1,13 +1,13 @@
 import { pathToFileURL } from 'node:url';
 import { getConfig } from '../lib/config';
-import { closeDatabase, getPool } from '../lib/db/client';
+import { closeDatabase } from '../lib/db/client';
 import { logEvent } from '../lib/observability/log';
 import { enqueueScheduledRefresh, installationContext } from '../lib/jobs';
-import { claimFeed, claimJob, newWorkerId, releaseJob, releaseWorkerLeases, renewLease } from '../lib/jobs/worker';
-import { LostLeaseError, type FeedLease, type InstallationContext, type JobLease } from '../lib/jobs/types';
-import { prepareRefresh, commitRefresh, commitFailure } from '../lib/ingest/refresh';
+import { claimJob, newWorkerId, releaseWorkerLeases } from '../lib/jobs/worker';
+import { LostLeaseError, type InstallationContext } from '../lib/jobs/types';
+import { drainJob } from './job';
+import { heartbeat, stopHeartbeat } from '../lib/jobs/heartbeat';
 import { pruneAuthRateLimits } from '../lib/auth/rate-limit';
-import { FetchError } from '../lib/ingest/http';
 import { closeHostCoordinator } from '../lib/ingest/host-limits';
 
 async function pause(ms: number, signal: AbortSignal): Promise<void> {
@@ -18,56 +18,12 @@ async function pause(ms: number, signal: AbortSignal): Promise<void> {
     signal.addEventListener('abort', done, { once: true });
   });
 }
-export async function refreshOne(lease: FeedLease, shutdown: AbortSignal): Promise<void> {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  shutdown.addEventListener('abort', abort, { once: true });
-  if (shutdown.aborted) controller.abort();
-  let heartbeatError: unknown; let renewing: Promise<void> | undefined;
-  const timer = setInterval(() => {
-    if (renewing) return;
-    renewing = renewLease(lease.job, lease).catch(error => { heartbeatError = error; controller.abort(); }).finally(() => { renewing = undefined; });
-  }, Math.max(1000, Math.floor(getConfig().leaseSeconds * 1000 / 3)));
-  try {
-    let outcome;
-    try { outcome = await prepareRefresh(lease, controller.signal); }
-    catch (error) {
-      if (heartbeatError) throw heartbeatError;
-      if (shutdown.aborted) throw new LostLeaseError();
-      if (error instanceof LostLeaseError) throw error;
-      const failure = error instanceof FetchError ? error : { code: 'processing', message: 'The feed could not be safely processed.' };
-      clearInterval(timer); await renewing;
-      if (heartbeatError) throw heartbeatError;
-      await commitFailure(lease, failure);
-      logEvent('worker.feed_failed', { jobId: lease.job.id, feedId: lease.feed.id, code: failure.code });
-      return;
-    }
-    clearInterval(timer); await renewing;
-    if (heartbeatError) throw heartbeatError;
-    if (shutdown.aborted) throw new LostLeaseError();
-    try { await commitRefresh(lease, outcome); }
-    catch (error) {
-      if (error instanceof LostLeaseError) throw error;
-      // The merge transaction rolls back before this separate fenced failure record.
-      await commitFailure(lease, { code: 'merge', message: 'The feed could not be merged safely. Existing articles were preserved.' });
-      logEvent('worker.merge_failed', { jobId: lease.job.id, feedId: lease.feed.id, code: (error as { code?: string }).code ?? 'MERGE_ERROR' });
-    }
-  } finally { clearInterval(timer); shutdown.removeEventListener('abort', abort); }
-}
-async function runJob(job: JobLease, signal: AbortSignal): Promise<void> {
-  while (!signal.aborted) {
-    const feed = await claimFeed(job);
-    if (!feed) { await releaseJob(job); return; }
-    await refreshOne(feed, signal);
-    await renewLease(job);
-  }
-}
 async function lane(context: InstallationContext, workerId: string, signal: AbortSignal): Promise<void> {
   try {
     while (!signal.aborted) {
       try {
         const job = await claimJob(context, workerId);
-        if (job) await runJob(job, signal);
+        if (job) await drainJob(job, signal);
         else await pause(getConfig().workerPollMs, signal);
       } catch (error) {
         if (!(error instanceof LostLeaseError)) logEvent('worker.cycle_failed', { code: (error as { code?: string }).code ?? 'WORKER_ERROR' });
@@ -75,10 +31,6 @@ async function lane(context: InstallationContext, workerId: string, signal: Abor
       }
     }
   } finally { await releaseWorkerLeases(workerId); }
-}
-async function heartbeat(context: InstallationContext, workerId: string): Promise<void> {
-  await getPool().query(`INSERT INTO worker_heartbeats(worker_id,owner_id) VALUES($1,$2)
-    ON CONFLICT(worker_id) DO UPDATE SET heartbeat_at=clock_timestamp(),stopped_at=NULL`, [workerId, context.ownerId]);
 }
 async function scheduler(context: InstallationContext, workerId: string, signal: AbortSignal): Promise<void> {
   let nextSchedule = 0; let nextPrune = 0;
@@ -107,7 +59,7 @@ export async function runWorker(signal: AbortSignal): Promise<void> {
     if (failed) throw failed.reason;
   } finally {
     signal.removeEventListener('abort', stop);
-    await getPool().query('UPDATE worker_heartbeats SET stopped_at=clock_timestamp(),active_job_id=NULL WHERE worker_id=$1', [workerId]);
+    await stopHeartbeat(workerId);
     logEvent('worker.stopped', { workerId });
   }
 }
