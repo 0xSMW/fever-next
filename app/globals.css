@@ -1,0 +1,804 @@
+/*
+ * Fever reader styles.
+ * Ported from firewall/app/views/default/styles/{reset,shared,reader,content}.css
+ * and firewall/app/views/mobile/styles/{reset,content,iphone}.css.
+ * Image URLs are custom properties published by app/layout.tsx
+ * (--d-* default, --m-* mobile, --i-* app images), so base paths work.
+ * Accessibility changes from the source: visible focus, larger touch
+ * targets on coarse pointers, hover-only controls also shown on focus and
+ * touch, reduced motion, and contained article content.
+ */
+
+/* ---------------- reset (reset.css) ---------------- */
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code, del, dfn, em, font, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td,
+article, section, nav, main, header, footer {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  vertical-align: baseline;
+}
+body { line-height: 1; }
+blockquote, q { quotes: none; }
+blockquote::before, blockquote::after, q::before, q::after { content: none; }
+table { border-collapse: collapse; border-spacing: 0; }
+th { vertical-align: top; text-align: left; font-weight: normal; }
+input, select, button, textarea { margin: 0; }
+.fever-reader ol, .fever-reader ul { list-style: none; }
+
+/* ---------------- page (shared.css) ---------------- */
+html { min-height: 100%; }
+body {
+  background: #e9e9e9 var(--d-bg) 0 0 repeat-x fixed;
+  color: #333;
+  font: 10px/16px Helvetica, Arial, sans-serif;
+  min-height: 100%;
+  text-rendering: optimizeLegibility;
+}
+html[data-layout="compact"] body {
+  background: #333;
+  font: 12px/16px Helvetica, Arial, sans-serif;
+}
+
+.fever-reader a { font-weight: bold; text-decoration: none; color: #333; cursor: pointer; }
+.fever-reader a:hover { color: #A10; }
+.fever-reader code, .fever-reader pre { background-color: #E8E8E8; font: 10px/14px Monaco, Menlo, monospace; }
+.fever-reader pre { padding: 8px; overflow: auto; }
+.fever-reader button { font: inherit; color: inherit; background-color: transparent; border: none; padding: 0; margin: 0; cursor: pointer; vertical-align: middle; }
+.fever-reader button[disabled] { cursor: default; }
+.fever-reader kbd { font: bold 10px/14px Helvetica, Arial, sans-serif; background: #fff; border: 1px solid #ccc; border-radius: 3px; padding: 0 4px; }
+
+/* focus is always visible for keyboard users */
+.fever-reader :focus { outline: none; }
+.fever-reader :focus-visible { outline: 2px solid #A10; outline-offset: 1px; }
+.fever-reader input:focus, .fever-reader textarea:focus, .fever-reader select[multiple]:focus { background-color: #ffc; }
+
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 2000; background: #333; color: #fff !important; padding: 4px 8px; border-radius: 0 0 4px 0; }
+.skip-link:focus { left: 0; }
+.link-button { font-weight: bold !important; text-decoration: underline !important; color: #A10 !important; }
+
+.fever-boot {
+  position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; font-size: 12px; line-height: 18px; color: #333; background: #e9e9e9; text-align: center; padding: 16px;
+}
+html[data-layout="compact"] .fever-boot { background: #333; color: rgba(255,255,255,0.85); }
+
+/* ---------------- logo and buttons ---------------- */
+#logo { display: inline-block; width: 50px; height: 17px; }
+#logo img { display: block; }
+
+.fever-reader .btn {
+  display: inline-block; vertical-align: middle; width: 16px; height: 16px; line-height: 16px;
+  text-indent: -9999px; overflow: hidden; white-space: nowrap; cursor: pointer; background-position: 0 0; background-repeat: no-repeat;
+}
+.fever-reader .btn.text {
+  position: relative; overflow: visible; text-indent: 0; text-transform: lowercase; font-weight: normal; width: auto;
+  color: #FFF; padding: 0 0 0 8px; margin: 0 8px 0 0;
+}
+.fever-reader .btn.text i { display: block; position: absolute; top: 0; right: -8px; width: 8px; height: 16px; background-position: 100% 0; }
+.fever-reader .btn.menu { width: 28px; }
+.fever-reader .btn.menu.text { padding: 0 0 0 6px; margin: 0 15px 0 0; width: auto; }
+.fever-reader .btn.menu.text i { width: 15px; right: -15px; }
+.fever-reader .btn.default { background-position: 0 -32px; }
+.fever-reader .btn.default i { background-position: 100% -32px; }
+.fever-reader .btn:hover, .fever-reader .btn:focus-visible { background-position: 0 -16px; }
+.fever-reader .btn:hover i, .fever-reader .btn:focus-visible i { background-position: 100% -16px; }
+.fever-reader .text-button:hover .btn, .fever-reader .text-button:focus-visible .btn { background-position: 0 -16px; }
+.fever-reader .text-button:hover .btn i, .fever-reader .text-button:focus-visible .btn i { background-position: 100% -16px; }
+.fever-reader .text-button[disabled] .btn { cursor: default; background-position: 0 0 !important; opacity: .6; }
+.fever-reader .text-button[disabled] .btn i { background-position: 100% 0 !important; }
+
+.fever-reader .btn.text, .fever-reader .btn.text i { background-image: var(--d-btn-text); background-size: 640px 48px; }
+.fever-reader .btn.help { background-image: var(--d-btn-help); background-size: 16px 16px; position: relative; top: -2px; }
+.fever-reader .btn.refresh { background-image: var(--d-btn-refresh); background-size: 16px 32px; }
+.fever-reader .btn.cancel { background-image: var(--d-btn-cancel); background-size: 16px 32px; }
+.fever-reader .btn.add { background-image: var(--d-btn-add); background-size: 16px 32px; }
+.fever-reader .btn.menu.text, .fever-reader .btn.menu.text i { background-image: var(--d-btn-menu-text); background-size: 640px 32px; }
+.fever-reader .btn.menu.action { background-image: var(--d-btn-menu-action); background-size: 28px 32px; }
+.fever-reader .btn.menu.group { background-image: var(--d-btn-menu-group); background-size: 28px 32px; }
+.fever-reader .btn.menu.feed { background-image: var(--d-btn-menu-feed); background-size: 28px 32px; }
+.fever-reader .btn.menu.item { background-image: var(--d-btn-menu-item); background-size: 28px 32px; }
+
+/* hover-only row controls also appear on focus and on touch screens */
+.fever-desktop .box-list .btn, .fever-desktop .item .meta .btn, .fever-desktop .link .meta .btn { display: none; }
+.fever-desktop .box-list #section-0:hover .btn,
+.fever-desktop .box-list li:hover > .btn,
+.fever-desktop .box-list li:focus-within > .btn,
+.fever-desktop .box-list li.has-focus > .btn,
+.fever-desktop .item:hover .meta .btn, .fever-desktop .item:focus-within .meta .btn, .fever-desktop .item.has-focus .meta .btn,
+.fever-desktop .link:hover .meta .btn, .fever-desktop .link:focus-within .meta .btn, .fever-desktop .link.has-focus .meta .btn { display: inline-block; }
+@media (hover: none) {
+  .fever-desktop .box-list li > .btn, .fever-desktop .item .meta .btn, .fever-desktop .link .meta .btn { display: inline-block; }
+}
+.fever-desktop .box-list a:hover { color: #333; }
+.fever-desktop .box-list .help { display: block; position: absolute; top: 7px; right: 7px; }
+.fever-desktop .box-list .refresh, .fever-desktop .item .meta .btn.menu { position: absolute; top: 7px; right: 5px; }
+.fever-desktop .box-list .btn.menu { position: absolute; top: 7px; right: 25px; }
+.btn-row { vertical-align: middle; text-align: right; white-space: nowrap; }
+
+/* ---------------- framed boxes (sliding doors) ---------------- */
+.fever-desktop .box { position: relative; display: block; padding: 5px; margin: 0 0 4px; max-width: 2038px; }
+.fever-desktop .content { position: relative; z-index: 1; }
+.fever-desktop s.box { display: block; position: static; padding: 0; margin: 0; text-decoration: none; }
+.fever-desktop s.box u, .fever-desktop s.box i, .fever-desktop s.box b {
+  display: block; position: absolute; left: 0; right: 7px; background: var(--d-bg-box) 0 0 no-repeat; background-size: 2048px 48px;
+}
+.fever-desktop s.box u u, .fever-desktop s.box i i, .fever-desktop s.box b b { left: auto; right: -7px; width: 7px; }
+.fever-desktop s.box u { top: 0; height: 8px; }
+.fever-desktop s.box u u { background-position: 100% 0; }
+.fever-desktop s.box b { bottom: 0; height: 7px; background-position: 0 -9px; }
+.fever-desktop s.box b b { background-position: 100% -9px; }
+.fever-desktop s.box i { top: 8px; bottom: 7px; background: var(--d-bg-box-content-0) 0 0 repeat-y; background-size: 2048px 1px; }
+.fever-desktop s.box i i { top: 0; bottom: 0; height: 100%; background-position: -2041px 0; }
+.fever-desktop .box:hover s.box u { background-position: 0 -16px; }
+.fever-desktop .box:hover s.box u u { background-position: 100% -16px; }
+.fever-desktop .box:hover s.box b { background-position: 0 -25px; }
+.fever-desktop .box:hover s.box b b { background-position: 100% -25px; }
+.fever-desktop .box:hover s.box i { background-image: var(--d-bg-box-content-1); }
+.fever-desktop .box.has-focus s.box u { background-position: 0 -32px; }
+.fever-desktop .box.has-focus s.box u u { background-position: 100% -32px; }
+.fever-desktop .box.has-focus s.box b { background-position: 0 -41px; }
+.fever-desktop .box.has-focus s.box b b { background-position: 100% -41px; }
+.fever-desktop .box.has-focus s.box i { background-image: var(--d-bg-box-content-2); }
+
+/* ---------------- status bar (reader.css) ---------------- */
+.fever-desktop div.status, .fever-desktop button.status {
+  position: relative; z-index: 1; display: block; margin: 0 7px 4px 0; padding: 0 8px 0 36px; max-width: 1969px;
+  height: 30px; line-height: 30px; text-align: left; box-sizing: content-box;
+}
+.fever-desktop div.status, .fever-desktop div.status > s, .fever-desktop button.status, .fever-desktop button.status > s {
+  background: var(--d-bg-status) 0 0 no-repeat; background-size: 1024px 30px;
+}
+.fever-desktop .status > s { display: block; width: 7px; height: 30px; position: absolute; top: 0; right: -7px; background-position: 100% 0 !important; text-decoration: none; }
+.fever-desktop div.status .content { position: static; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fever-desktop div.status .btn.refresh { position: absolute; top: 7px; left: 11px; }
+.fever-desktop div.status .btn.cancel { position: absolute; top: 7px; right: 3px; }
+.fever-desktop div.status .favicon { left: 8px; }
+.fever-desktop div.status .favicon.icon { left: 11px; }
+.fever-desktop .timestamp { text-transform: lowercase; }
+.fever-desktop .status.inline { padding-left: 12px; font-weight: bold; }
+.fever-desktop button.status { width: calc(100% - 27px); cursor: pointer; font-weight: bold; }
+.fever-desktop div.status.notice {
+  height: auto; min-height: 16px; line-height: 16px; padding: 7px 28px 7px 12px; background: #fff; border-radius: 4px; margin-right: 0;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+}
+.fever-desktop div.status.notice > s { display: none; }
+.fever-desktop div.status.notice .content { white-space: normal; overflow: visible; }
+.fever-desktop div.status.notice.error { color: #A10; }
+.fever-desktop div.status.notice .notice-dismiss { position: absolute; top: 7px; right: 6px; }
+.fever-desktop #refreshing { display: none; }
+.fever-desktop #refreshing.active { display: block; }
+.fever-desktop #refreshing .status { padding-right: 36px; }
+
+/* ---------------- box lists ---------------- */
+.fever-desktop .box-list li, .fever-desktop .box-list li > a, .fever-desktop .box-list li form,
+.fever-desktop .source-list li, .fever-desktop .source-list li .source,
+.fever-desktop .item .meta h2, .fever-desktop .item .meta h2 a.inline-feed {
+  background: var(--d-bg-box-list) 0 0 no-repeat; background-size: 2038px 150px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fever-desktop .box-list li, .fever-desktop .item .meta h2, .fever-desktop .source-list li { position: relative; padding: 0 0 0 2px; }
+.fever-desktop .box-list li > a, .fever-desktop .box-list li form, .fever-desktop .item .meta h2 a.inline-feed, .fever-desktop .source-list li .source {
+  cursor: pointer; display: block; height: 30px; line-height: 30px; background-position: 100% 0; padding: 0 5px 0 30px;
+}
+.fever-desktop .box-list li:hover > a, .fever-desktop .box-list li:focus-within > a { padding-right: 56px; }
+.fever-desktop .box-list li a.read { font-weight: normal; color: #666; }
+.fever-desktop .box-list li a.abandoned { color: #a26731; }
+.fever-desktop .box-list li a.read .favicon { opacity: 0.7; }
+.fever-desktop .box-list li a em { font-weight: normal; font-style: normal; margin-left: 4px; }
+.fever-desktop .box-list li a.hide-unread em.unread-count,
+.fever-desktop .box-list li a.read em.unread-count,
+.fever-desktop .box-list li a.read em.saved-count { display: none; }
+.fever-desktop .box-list li.has-error > a { color: #A10; }
+.fever-desktop .feed-error-mark { display: inline-block; margin-left: 4px; color: #A10; font-weight: bold; }
+.fever-desktop .source-list li .source { cursor: auto; color: #666; }
+.fever-desktop .source-list li a { display: inline-block; }
+.fever-desktop .box-list li form a { background-image: none !important; }
+.fever-desktop .box-list > li:first-child, .fever-desktop .box-list > li:first-child > a, .fever-desktop .box-list li:first-child form,
+.fever-desktop .item .meta h2, .fever-desktop .item .meta h2 a.inline-feed { background-image: var(--d-bg-box-list-top); }
+.fever-desktop .box-list > li:last-child, .fever-desktop .box-list > li:last-child > a, .fever-desktop .box-list li:last-child form,
+.fever-desktop .source-list li:last-child, .fever-desktop .source-list li:last-child .source { background-image: var(--d-bg-box-list-bottom); }
+.fever-desktop .box-list .box-list > li:first-child, .fever-desktop .box-list .box-list > li:first-child > a,
+.fever-desktop .box-list .box-list > li:last-child, .fever-desktop .box-list .box-list > li:last-child > a { background-image: var(--d-bg-box-list); }
+.fever-desktop .box-list > li:hover, .fever-desktop .source-list li:hover { background-position: 0 -30px; }
+.fever-desktop .box-list > li:hover > a, .fever-desktop .box-list li:hover form, .fever-desktop .source-list li:hover .source { background-position: 100% -30px; }
+.fever-desktop .box-list li.has-focus { background-position: 0 -60px; }
+.fever-desktop .box-list li.has-focus > a, .fever-desktop .box-list li.has-focus form { background-position: 100% -60px; color: #FFF; }
+.fever-desktop .box-list li.has-focus > a.read { color: #eee; }
+.fever-desktop .has-focus .box-list li.has-focus, .fever-desktop .item.has-focus .meta h2, .fever-desktop .has-focus .source-list li.has-focus { background-position: 0 -90px; color: #FFF; }
+.fever-desktop .has-focus .box-list li.has-focus > a, .fever-desktop .has-focus .box-list li.has-focus form,
+.fever-desktop .item.has-focus .meta h2 a.inline-feed, .fever-desktop .has-focus .source-list li.has-focus .source { background-position: 100% -90px; color: #FFF; }
+.fever-desktop .has-focus .source-list li.has-focus .source a { color: #FFF; }
+/* Fallback colors match the bg-box-list sprite rows, so white text on a selected
+   row stays legible before the sprite arrives or when images are blocked. */
+.fever-desktop .box-list li.has-focus { background-color: #9e9e9e; }
+.fever-desktop .has-focus .box-list li.has-focus, .fever-desktop .item.has-focus .meta h2,
+.fever-desktop .has-focus .source-list li.has-focus { background-color: #444; }
+.fever-desktop .box-list li.target { background-color: #A10; }
+.fever-desktop .box-list li.target { background-position: 0 -120px; }
+.fever-desktop .box-list li.target > a, .fever-desktop .box-list li.target form { background-position: 100% -120px; color: #FFF; }
+.fever-desktop #groups-scroller-container { padding: 0; background-image: none !important; }
+.fever-desktop .pane-empty { padding: 8px 10px; color: #666; }
+
+/* ---------------- icons and favicons ---------------- */
+.fever-reader i.icon, .fever-reader i.favicon, .fever-reader i.favicon i { display: inline-block; vertical-align: middle; width: 16px; height: 16px; font-style: normal; }
+.fever-reader i.favicon img { display: block; width: 16px; height: 16px; }
+.fever-reader i.favicon i { background-size: 16px; background-repeat: no-repeat; }
+.fever-desktop .box-list .icon, .fever-desktop .box-list .favicon, .fever-desktop .source-list .favicon,
+.fever-desktop .item .meta .favicon, .fever-desktop .status .favicon {
+  background: var(--d-bg-favicon) 0 0 no-repeat; background-size: 22px 22px; padding: 3px; position: absolute; top: 4px; left: 4px;
+}
+.fever-desktop .box-list .favicon.icon, .fever-desktop .source-list .favicon.icon, .fever-desktop .item .meta .favicon.icon,
+.fever-desktop .status .favicon.icon {
+  background-image: var(--d-icon-favicon); background-size: 16px 32px; padding: 0; top: 7px; left: 7px;
+}
+/* reader.css gives the Hot link's feed favicon no frame, beside the title. */
+.fever-desktop .link .meta .favicon { position: absolute; top: 14px; left: 7px; padding: 0; background: none; }
+.fever-desktop .link .meta .favicon.icon { background: var(--d-icon-favicon) 0 0 no-repeat; background-size: 16px 32px; }
+.fever-desktop .favicon.icon.locked { background-image: var(--d-icon-favicon-locked) !important; }
+.fever-desktop li.has-focus .favicon.icon, .fever-desktop .item.has-focus .favicon.icon, .fever-desktop .source-list.has-focus li.has-focus .favicon.icon { background-position: 0 -16px; }
+.fever-desktop .box-list .icon { background-image: none; }
+.fever-desktop li.has-focus .icon, .fever-desktop li.target .icon { background-position: 0 -22px; }
+.fever-desktop #groups .icon { background-size: 22px 44px; }
+.fever-desktop .icon.hot { background-image: var(--d-icon-hot); }
+.fever-desktop .icon.kindling { background-image: var(--d-icon-kindling); }
+.fever-desktop .icon.saved { background-image: var(--d-icon-saved); }
+.fever-desktop .icon.spark { background-image: var(--d-icon-spark); }
+.fever-desktop .icon.search { background-image: var(--d-icon-search); }
+.fever-desktop .icon.unread { background-image: var(--d-icon-unread); background-size: 22px 44px; }
+.fever-desktop .icon.trash { background-image: var(--d-icon-trash); }
+
+/* ---------------- hot options ---------------- */
+/* reader.css uses #888; #666 brings the 10px labels to 4.5:1 on the row. */
+.fever-desktop #hot-options { display: none; color: #666; }
+.fever-desktop.hot #section-0:hover #hot-options,
+.fever-desktop.hot #section-0:focus-within #hot-options { display: block; position: absolute; top: 7px; right: 25px; line-height: 16px; }
+@media (hover: none) { .fever-desktop.hot #section-0 #hot-options { display: block; position: absolute; top: 7px; right: 25px; line-height: 16px; } }
+.fever-desktop .box-list li.has-focus #hot-options { color: #EEE; }
+.fever-desktop .has-focus .box-list li.has-focus #hot-options { color: #BBB; }
+.fever-desktop .box-list #hot-options .btn.menu { position: relative; top: auto; right: auto; display: inline-block; }
+
+/* ---------------- search ---------------- */
+.fever-desktop .search, .fever-desktop .btn.cancel.search {
+  display: block; position: absolute; top: 7px; height: 18px; background: var(--d-bg-search) 0 0 no-repeat; background-size: 640px 36px;
+}
+.fever-desktop .search.q { left: 29px; right: 21px; padding: 0 0 0 8px; }
+.fever-desktop .search.q #q {
+  -webkit-appearance: none; appearance: none; width: 100%; background-color: transparent; border: none; padding: 0; margin: 2px 0 0;
+  font: 10px/14px Helvetica, Arial, sans-serif; color: #333; height: 14px;
+}
+.fever-desktop #q::-webkit-search-cancel-button, .fever-desktop #q::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+.fever-desktop .btn.cancel.search { right: 5px; background-position: 100% 0; width: 16px; cursor: default; }
+.fever-desktop .btn.cancel.search.clear { background-position: 100% -18px; cursor: pointer; }
+.fever-desktop #remove { display: block; }
+.fever-desktop #remove a { display: block; height: 30px; line-height: 30px; padding: 0 5px 0 30px; }
+
+/* ---------------- items (reader.css) ---------------- */
+.fever-desktop .item .meta { position: relative; padding: 30px 0 0; }
+.fever-desktop .item .meta h2 { position: absolute; height: 30px; top: 0; left: 0; right: 0; padding: 0 2px 0 0; background-position: 100% 0; font-weight: bold; }
+.fever-desktop .item .meta h2 a.inline-feed { line-height: 18px; display: inline-block; background-position: 0 0; padding: 0 3px 0 32px; max-width: calc(100% - 70px); }
+.fever-desktop .item.has-focus .meta h2 { background-position: 100% -90px; }
+.fever-desktop .item.has-focus .meta h2 a.inline-feed { background-position: 0 -90px; }
+.fever-desktop .item .meta h2 .posted { position: absolute; top: 13px; left: 32px; font-size: 9px; font-weight: normal; }
+.fever-desktop .item.has-focus .meta h2 .posted { color: #FFF; }
+.fever-desktop .meta .btn.menu.item { position: absolute; top: 45px; right: 5px; }
+.fever-desktop .meta h1 { font-size: 18px; line-height: 18px; margin: 13px 48px 13px 32px; font-weight: bold; overflow-wrap: anywhere; }
+.fever-desktop .link .meta h2 { font-weight: normal; margin: -13px 48px 13px 32px; }
+.fever-desktop .link .meta h2 a { position: static; }
+.fever-desktop .link .meta .btn.menu.item { top: 34px; right: 5px; }
+.fever-desktop .item.read .meta, .fever-desktop .item.read .item-content, .fever-desktop .link .source.read a { opacity: 0.7; }
+.fever-desktop .item.read.has-focus .meta, .fever-desktop .item.read.has-focus .item-content, .fever-desktop .item.read:hover .meta,
+.fever-desktop .item.read:hover .item-content, .fever-desktop .link.has-focus .source.read a, .fever-desktop .link:hover .source.read a { opacity: 1; }
+.fever-desktop .item .meta .state, .fever-desktop .link .meta .state {
+  position: absolute; top: 44px; left: 6px; width: 17px; height: 18px; background: var(--d-bg-state) 0 0 no-repeat; background-size: 64px 128px;
+  cursor: pointer; z-index: 100; text-indent: -9999px; overflow: hidden; white-space: nowrap;
+}
+.fever-desktop .item:hover .meta .state, .fever-desktop .link:hover .meta .state, .fever-desktop .meta .state:focus-visible { background-position: -32px 0; }
+.fever-desktop .new .meta .state { background-position: 0 -32px; }
+.fever-desktop .new:hover .meta .state, .fever-desktop .new .meta .state:focus-visible { background-position: -32px -32px; }
+.fever-desktop .unread .meta .state { background-position: 0 -64px; }
+.fever-desktop .unread:hover .meta .state, .fever-desktop .unread .meta .state:focus-visible { background-position: -32px -64px; }
+.fever-desktop .saved .meta .state { background-position: 0 -96px; }
+.fever-desktop .saved:hover .meta .state, .fever-desktop .saved .meta .state:focus-visible { background-position: -32px -96px; }
+.fever-desktop .link .meta .state { top: 13px; left: 7px; }
+.fever-desktop .link.an-item .meta .state { top: 60px; left: 7px; }
+.fever-desktop .btn.blacklist {
+  position: absolute; top: 15px; right: 7px; width: 16px; cursor: pointer; background: var(--d-bg-blacklist) 0 0 no-repeat; background-size: 16px 16px;
+}
+.fever-desktop .item .content, .fever-desktop .link .content { overflow: hidden; }
+.fever-desktop #content-container.maxed > .box:last-of-type, .fever-desktop #content-container.maxed > .degree:last-of-type > .box:last-child { margin-bottom: calc(100vh - 160px); }
+.fever-desktop .paging { margin: 0 0 4px; }
+.fever-desktop .empty-state { padding: 10px 12px; font-size: 12px; line-height: 24px; }
+.fever-desktop .empty-state.error { color: #A10; }
+.fever-desktop .empty-state .text-button { margin-left: 6px; }
+
+#inline-read {
+  position: relative; display: block; line-height: 30px; height: 30px; font-weight: bold; margin-right: 7px; padding: 0 10px; width: calc(100% - 27px);
+  text-align: left; background: var(--d-bg-status) 0 0 no-repeat; background-size: 1024px 30px; cursor: pointer;
+}
+#inline-read s { position: absolute; top: 0; right: -7px; width: 7px; height: 30px; background: var(--d-bg-status) 100% 0 no-repeat; background-size: 1024px 30px; }
+
+/* ---------------- refresh thermometer ---------------- */
+.fever-desktop .thermometer { position: absolute; top: 0; bottom: 3px; left: -20px; width: 12px; }
+.fever-desktop .thermometer .groove { position: absolute; top: 4px; left: 4px; bottom: 4px; width: 4px; }
+.fever-desktop #mercury {
+  max-height: 100%; min-height: 4px; position: absolute; left: 0; bottom: 0; width: 4px;
+  background: #A10 var(--d-bg-mercury) 0 0 repeat; background-size: 8px 8px; border-radius: 2px; transition: height .3s ease-out;
+}
+.fever-desktop #mercury .label {
+  display: none; text-align: right; white-space: nowrap; position: absolute; z-index: 4; top: -2px; right: 10px;
+  padding: 0 4px; border-radius: 4px; background-color: #DDD;
+}
+.fever-desktop #refreshing:hover #mercury .label { display: block; }
+.fever-desktop.fluid #mercury .label { right: auto; left: 10px; color: #FFF; background-color: #333; }
+.fever-desktop .thermometer u, .fever-desktop .thermometer b {
+  position: absolute; left: 0; display: block; width: 12px; background: var(--d-bg-thermometer) 0 0 no-repeat; background-size: 12px 2400px;
+}
+.fever-desktop .thermometer u { top: 0; bottom: 7px; }
+.fever-desktop .thermometer b { height: 7px; bottom: 0; background-position: 0 100%; }
+
+/* ---------------- Hot temperature column ---------------- */
+.fever-desktop .degree { position: relative; padding: 0 0 0 180px; }
+.fever-desktop .notches { position: absolute; top: 8px; left: 0; bottom: 3px; width: 16px; background: var(--d-bg-temperature) 0 100% repeat-y; background-size: 16px 16px; }
+.fever-desktop .notches b { position: absolute; top: 6px; left: 3px; bottom: -2px; display: block; width: 4px; background-color: #A10; border-radius: 2px; }
+.fever-desktop .temperature {
+  position: absolute; top: 11px; left: 25px; width: 168px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; font-size: 52px; line-height: 52px;
+}
+.fever-desktop .temperature em { font-weight: normal; font-style: normal; color: #A10; }
+.fever-desktop .temperature .integer, .fever-desktop .temperature .decimal { position: absolute; }
+.fever-desktop .temperature .integer { right: 88px; }
+.fever-desktop .temperature .decimal { left: 80px; }
+.fever-desktop .kern-1 { margin: 0 -3px; }
+
+/* ---------------- layout ---------------- */
+.fever-desktop { padding: 16px 0 11px; }
+.fever-desktop #top { position: absolute; top: 0; }
+.fever-desktop #fixed { position: fixed; z-index: 2; top: 16px; left: 0; right: 0; }
+.fever-desktop .container {
+  position: relative; z-index: 1; max-width: 1024px; min-width: 744px; margin: 0 auto; padding-left: 96px; box-sizing: border-box;
+}
+.fever-desktop.show-feeds .container { max-width: 1364px; min-width: 968px; }
+.fever-desktop #fever, .fever-desktop #fluid, .fever-desktop #groups-container, .fever-desktop #feeds-container { position: absolute; top: 0; }
+.fever-desktop #fever { left: 16px; width: 80px; }
+.fever-desktop #logo { display: block; margin: 0 0 4px; }
+.fever-desktop #fever .btn.menu.action { display: inline-block; margin: 0; }
+.fever-desktop #fluid { left: 96px; right: 0; }
+.fever-desktop #groups-container, .fever-desktop #feeds-container { width: 35%; padding-right: 24px; box-sizing: border-box; }
+.fever-desktop.show-feeds #groups-container, .fever-desktop.show-feeds #feeds-container { width: 25%; padding-right: 44px; }
+.fever-desktop #groups-container { z-index: 1; left: 0; }
+.fever-desktop #feeds-container { z-index: 2; left: 25%; margin-left: -28px; padding-left: 28px; }
+.fever-desktop #feeds { margin-right: -28px; }
+.fever-desktop #content-container { margin: 0 16px 0 35%; outline: none; }
+.fever-desktop.show-feeds #content-container { margin-left: 50%; }
+/* reader.css: Hot keeps the show-feeds group width and puts content at 25%. */
+.fever-desktop.show-feeds.hot #content-container { margin-left: 25%; }
+/* panes scroll independently of the article column */
+/* No min-height: reader.js only caps the list, so one group is one row tall. The cap keeps two rows on short windows. */
+.fever-desktop #groups-scroller { max-height: max(60px, calc(100vh - 226px)); overflow-y: auto; overscroll-behavior: contain; }
+.fever-desktop #feeds-scroller { max-height: calc(100vh - 42px); overflow-y: auto; overscroll-behavior: contain; }
+.fever-desktop #feeds-scroller-container { overflow: hidden; }
+.fever-desktop #fever.loading { background: var(--d-spinner) 33px 20px no-repeat; background-size: 16px 16px; min-height: 40px; }
+
+/* alphabet jump strip */
+.fever-desktop #feeds-alpha { display: none; z-index: 1; width: 24px; position: absolute; top: 3px; left: 0; text-align: center; }
+/* reader.css: only when the feeds list overflows (FeedsPane sets .scrollable). */
+.fever-desktop #feeds-container.scrollable:hover #feeds-alpha, .fever-desktop #feeds-container.scrollable #feeds-alpha:focus-within { display: block; }
+@media (hover: none) { .fever-desktop #feeds-container.scrollable #feeds-alpha { display: block; } }
+.fever-desktop #feeds-alpha li { color: #999; line-height: 18px; background: var(--d-bg-alpha) 0 50% no-repeat; background-size: 72px 1024px; }
+.fever-desktop #feeds-alpha li button { display: block; width: 100%; font-weight: bold; color: #333; line-height: 18px; }
+.fever-desktop #feeds-alpha li button.btn.cancel { display: inline-block; width: 16px; height: 16px; margin: 1px 0; }
+.fever-desktop #feeds-alpha li:first-child { background-position: 0 0; padding: 0 0 3px; }
+.fever-desktop #feeds-alpha li:last-child { background-position: 0 100%; }
+.fever-desktop #feeds-alpha li:nth-child(even) { background-position: -24px 50%; }
+.fever-desktop #feeds-alpha li:nth-child(even):last-child { background-position: -24px 100%; }
+.fever-desktop #feeds-alpha li:hover, .fever-desktop #feeds-alpha li:last-child:hover { background-position-x: -48px; }
+
+/* fluid width */
+.fever-desktop.fluid .container, .fever-desktop.fluid.show-feeds .container, .fever-desktop.fluid .item-content { max-width: none; }
+.fever-desktop.fluid .item-content img { max-width: 100%; }
+.fever-desktop.fluid #groups-container, .fever-desktop.fluid #feeds-container { width: 240px; }
+.fever-desktop.fluid.show-feeds #groups-container { width: 260px; }
+.fever-desktop.fluid #feeds-container { left: 260px; }
+.fever-desktop.fluid.show-feeds #feeds-container { width: 300px; }
+.fever-desktop.fluid.show-feeds #content-container { margin-left: 560px; }
+.fever-desktop.fluid #content-container, .fever-desktop.fluid.show-feeds.hot #content-container { margin-left: 260px; max-width: 2048px; }
+
+/* dragging feeds onto groups, Sparks, or Remove */
+.fever-desktop [draggable="true"] { -webkit-user-drag: element; }
+.fever-desktop.dragging .droppable { outline: 1px dashed rgba(170, 17, 0, 0.35); outline-offset: -2px; }
+
+/* ---------------- menus (shared.css) ---------------- */
+.fever-reader #menu-container { position: fixed; z-index: 999; inset: 0; }
+.fever-reader #menu { position: fixed; z-index: 1000; border-radius: 4px; opacity: 0.95; box-shadow: 3px 3px 3px rgba(0,0,0,.1); }
+.fever-reader #menu-options { position: relative; z-index: 1; color: #333; background-color: #FFF; padding: 4px 0; border-radius: 4px; max-height: calc(100vh - 16px); overflow-y: auto; }
+.fever-reader #menu-options li { position: relative; white-space: nowrap; }
+.fever-reader #menu-options li button {
+  display: block; width: 100%; text-align: left; position: relative; padding: 0 48px 0 18px; line-height: 16px;
+  font: 10px/16px Helvetica, Arial, sans-serif; color: #333; white-space: nowrap;
+}
+.fever-reader #menu-options li span.key { position: absolute; top: 0; right: 12px; text-transform: uppercase; }
+.fever-reader #menu-options li span.key.shift { padding: 0 0 0 18px; background: var(--d-icon-shift) 2px 0 no-repeat; background-size: 16px 32px; }
+.fever-reader #menu-options li.selected button { background: var(--d-icon-check) 2px 0 no-repeat; background-size: 16px 32px; }
+.fever-reader #menu-options li.disabled button { color: #333 !important; background-color: #FFF !important; cursor: default; opacity: 0.5; }
+.fever-reader #menu-options li button:not([disabled]):hover, .fever-reader #menu-options li button:not([disabled]):focus,
+.fever-reader #menu-options li button:not([disabled]):hover span.key.shift, .fever-reader #menu-options li button:not([disabled]):focus span.key.shift {
+  color: #FFF; background-color: #333; background-position: 2px -16px; outline: none;
+}
+.fever-reader #menu-options li.divider { margin: 4px 1px; border-top: 1px solid #EEE; }
+.fever-reader #menu-shadow { position: absolute; inset: -1px; background-color: #000; opacity: .1; border-radius: 5px; }
+
+/* ---------------- help bubble ---------------- */
+.help-bubble {
+  position: fixed; z-index: 1000; width: 224px; padding: 8px 10px; border-radius: 8px;
+  color: #FFF; background-color: #333; opacity: 0.9; font-size: 12px; line-height: 16px; pointer-events: none;
+}
+.help-bubble dt { font-weight: bold; }
+.help-bubble dt em { color: #BBB; font-weight: normal; font-style: normal; }
+.help-bubble dd { margin: 0; }
+/* #help-dangle: the pointer drawn beside the help button */
+.help-dangle {
+  position: fixed; z-index: 1000; width: 21px; height: 48px; pointer-events: none; opacity: 0.9;
+  background: var(--d-bg-help) 8px 8px no-repeat; background-size: 26px 32px;
+}
+
+/* ---------------- dialogs (shared.css) ---------------- */
+.fever-reader > #dialog-container {
+  position: fixed; z-index: 500; inset: 0; overflow-y: auto; background: var(--d-bg-dialog-screen) 0 0 repeat;
+}
+.fever-reader > #dialog-container #dialog-window { margin: 32px auto 32px; width: 354px; max-width: calc(100vw - 16px); }
+.fever-reader > #dialog-container #dialog-window.wide { width: 560px; }
+.fever-reader > #dialog-container #dialog { padding: 34px 0 0; position: relative; font-size: 11px; line-height: 16px; }
+.fever-reader > #dialog-container #dialog h1 {
+  position: absolute; top: 0; left: 0; width: 100%; padding: 0 8px 4px; box-sizing: border-box; line-height: 30px;
+  font-size: 12px; font-weight: bold; color: #FFF; background: var(--d-bg-dialog) 0 0 no-repeat; background-size: 708px 1024px;
+}
+.fever-reader > #dialog-container .dialog-body { background: var(--d-bg-dialog) 0 100% no-repeat; background-size: 708px 1024px; padding: 1px 5px 7px; }
+.fever-reader > #dialog-container #dialog-window.wide #dialog h1 { background: #555; border-radius: 6px 6px 0 0; }
+.fever-reader > #dialog-container #dialog-window.wide .dialog-body { background: #ececec; border-radius: 0 0 6px 6px; padding: 8px 12px 12px; }
+.fever-reader > #dialog-container fieldset { position: relative; z-index: 1; background: var(--d-bg-dialog-form) 0 0 no-repeat; background-size: 344px 987px; padding: 4px 5px; }
+.fever-reader > #dialog-container p { padding: 4px 5px; }
+.fever-reader > #dialog-container form table { width: 100%; }
+.fever-reader > #dialog-container form tr > * { padding: 8px 5px 5px 0; vertical-align: middle; }
+.fever-reader > #dialog-container th.proto { white-space: nowrap; font-weight: bold; }
+.fever-reader > #dialog-container td.proto { width: 100%; }
+.fever-reader > #dialog-container .btn-row { padding-top: 6px; }
+.fever-reader > #dialog-container .btn-row .text-button { margin-left: 4px; }
+.fever-reader span.w { display: block; background-color: #FFF; padding: 1px; }
+.fever-reader span.w input[type=text] { width: 100%; box-sizing: border-box; border: 1px solid #bbb; padding: 2px 3px; font: 11px/16px Helvetica, Arial, sans-serif; }
+.fever-reader ul.errors { margin: 18px 0; }
+.fever-reader ul.errors li { padding-left: 22px; color: #A10; background: var(--d-bg-error) 0 1px no-repeat; background-size: 18px 14px; }
+.fever-reader .check-list { max-height: 240px; overflow-y: auto; padding: 4px 5px; background: #fff; border: 1px solid #ccc; }
+.fever-reader .check-list li { line-height: 22px; }
+.keyboard-help section { margin: 0 0 10px; }
+.keyboard-help h2 { font-size: 11px; font-weight: bold; color: #666; margin: 4px 0; }
+.keyboard-help table { width: 100%; }
+.keyboard-help th { width: 34%; padding: 2px 8px 2px 0; white-space: nowrap; }
+.keyboard-help td { padding: 2px 0; }
+.keyboard-help .conflict { color: #A10; font-style: normal; display: block; }
+.keyboard-help .note { color: #666; padding: 4px 0; }
+
+/* ---------------- article typography (content.css) ---------------- */
+.fever-reader .item-content {
+  margin: 13px 32px 10px; max-width: 360px; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; font-weight: normal;
+}
+.fever-reader .item-content a { color: #A10; font-weight: normal; text-decoration: underline; }
+.fever-reader .item-content a:visited { color: #666; }
+.fever-reader .item-content a:hover { color: #A10; text-decoration: none; }
+.fever-reader .item-content h1, .fever-reader .item-content h2, .fever-reader .item-content h3, .fever-reader .item-content h4,
+.fever-reader .item-content h5, .fever-reader .item-content h6, .fever-reader .item-content p, .fever-reader .item-content blockquote,
+.fever-reader .item-content ol, .fever-reader .item-content ul, .fever-reader .item-content dl, .fever-reader .item-content pre,
+.fever-reader .item-content table, .fever-reader .item-content figure { margin: 18px 0; }
+.fever-reader .item-content > :first-child { margin-top: 0; }
+.fever-reader .item-content h1, .fever-reader .item-content h2, .fever-reader .item-content h3,
+.fever-reader .item-content h4, .fever-reader .item-content h5, .fever-reader .item-content h6 { font-weight: bold; position: static; background: none; }
+.fever-reader .item-content b, .fever-reader .item-content big, .fever-reader .item-content strong { color: #666; font-weight: bold; }
+.fever-reader .item-content i, .fever-reader .item-content em, .fever-reader .item-content cite { font-style: italic; }
+.fever-reader .item-content h1 { font-size: 18px; line-height: 24px; }
+.fever-reader .item-content h2 { font-size: 14px; line-height: 20px; }
+.fever-reader .item-content h3 { font-size: 12px; line-height: 18px; }
+.fever-reader .item-content img, .fever-reader .item-content video { max-width: 100%; height: auto; }
+.fever-reader .item-content p img { float: left; margin: 0 8px 8px 0; }
+.fever-reader .item-content p::after { display: block; content: ''; clear: both; height: 0; visibility: hidden; }
+.fever-reader .item-content blockquote { border-left: 1px solid #CCC; padding-left: 8px; }
+.fever-reader .item-content ul { list-style: disc; padding-left: 18px; }
+.fever-reader .item-content ol { list-style: decimal; padding-left: 18px; }
+.fever-reader .item-content li { display: list-item; }
+.fever-reader .item-content ul ul, .fever-reader .item-content ol ol, .fever-reader .item-content ul ol, .fever-reader .item-content ol ul { margin: 0; }
+.fever-reader .item-content dt { font-weight: bold; }
+.fever-reader .item-content dd { margin: 0 0 6px 18px; }
+.fever-reader .item-content code, .fever-reader .item-content pre { background-color: #E8E8E8; opacity: 0.75; font: 10px/14px Monaco, Menlo, monospace; }
+.fever-reader .item-content pre { padding: 8px; overflow: auto; max-width: 100%; white-space: pre; overflow-wrap: normal; }
+.fever-reader .item-content table { display: block; max-width: 100%; overflow-x: auto; }
+.fever-reader .item-content th, .fever-reader .item-content td { padding: 0 4px 0 0; vertical-align: top; }
+.fever-reader .item-content th { font-weight: bold; }
+.fever-reader .item-content s, .fever-reader .item-content strike, .fever-reader .item-content del { text-decoration: line-through; opacity: 0.6; }
+.fever-reader .item-content hr { border: 0; border-top: 1px solid #ccc; margin: 18px 0; }
+.fever-reader .item-content sup, .fever-reader .item-content sub { font-size: 75%; line-height: 0; }
+.fever-reader .item-content sup { vertical-align: super; }
+.fever-reader .item-content sub { vertical-align: sub; }
+/* :not(.search) keeps the highlight off the desktop search wrapper (<span class="search q">). */
+.fever-reader .item-content ins, .fever-reader .item .content span.q, .fever-reader span.q:not(.search) {
+  position: relative; z-index: 100; display: inline; background-color: rgba(255,255,137,0.7); padding: 0 2px; margin: 0 -2px; border-radius: 2px; text-decoration: none;
+}
+.fever-reader .item-content .broken-image { display: inline-block; padding: 2px 6px; margin: 2px 0; color: #666; background: #eee; border: 1px dashed #bbb; font-size: 10px; line-height: 16px; }
+.fever-reader .empty-content { color: #666; }
+
+/* ---------------- touch and coarse pointers ---------------- */
+@media (pointer: coarse) {
+  .fever-reader #menu-options li button { line-height: 36px; font-size: 13px; }
+  .fever-reader #menu-options li span.key { line-height: 36px; }
+  .fever-desktop .box-list li > a, .fever-desktop .source-list li .source { height: 40px; line-height: 40px; }
+  .fever-desktop .box-list .btn, .fever-desktop .box-list .help, .fever-desktop .box-list .refresh { top: 12px; }
+  .fever-desktop .box-list .icon, .fever-desktop .box-list .favicon { top: 9px; }
+  .fever-desktop .box-list .favicon.icon { top: 12px; }
+}
+
+/* ---------------- reduced motion ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  .fever-reader *, .fever-reader *::before, .fever-reader *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .fever-desktop #fever.loading { background-image: none; }
+  .fever-desktop #fever.loading::after { content: "Loading…"; position: absolute; top: 20px; left: 0; font-size: 9px; color: #666; }
+}
+
+/* ======================================================================
+   Compact layout (mobile/styles/iphone.css)
+   ====================================================================== */
+.fever-mobile { min-height: 100vh; font-family: Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #333; padding-bottom: env(safe-area-inset-bottom); }
+.fever-mobile button { font: inherit; }
+.fever-mobile #screens-container { width: 100%; overflow-x: hidden; }
+.fever-mobile .screen { position: relative; padding: 0 max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left)); max-width: 720px; margin: 0 auto; animation: fever-slide-in .18s ease-out; }
+@keyframes fever-slide-in { from { transform: translateX(16px); opacity: .6; } to { transform: none; opacity: 1; } }
+.fever-mobile.dialog #screens-container { opacity: 0.25; }
+
+.fever-mobile .header { position: relative; height: 44px; padding-top: env(safe-area-inset-top); }
+.fever-mobile .footer { position: relative; min-height: 24px; color: rgba(255,255,255,0.85); margin: 0 0 8px; }
+.fever-mobile .header .left, .fever-mobile .footer .left { position: absolute; top: 9px; left: 0; }
+.fever-mobile .header .right, .fever-mobile .footer .right { position: absolute; top: 9px; right: 0; }
+.fever-mobile .footer .left, .fever-mobile .footer .right { top: 0; line-height: 28px; }
+.fever-mobile .header .title {
+  color: rgba(255,255,255,0.85); font-weight: bold; font-size: 20px; line-height: 40px; text-align: center;
+  padding: 4px 112px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* iphone.css: title padding 80px = button max-width 56 + padding 16 + border 2,
+   plus a gap. Here the header button is border-box at 104px (back arrow padding
+   included) and the title keeps 8px clear of it at every width. */
+.fever-mobile .header .left .btn { box-sizing: border-box; max-width: 104px; }
+.fever-mobile .header .title::before {
+  display: inline-block; width: 24px; height: 24px; vertical-align: middle; content: '';
+  background: var(--m-icon-group) 0 -24px no-repeat; background-size: 24px 48px; opacity: 0.8; margin: -6px -4px 0;
+}
+.fever-mobile #fever .header .title::before { display: none; }
+.fever-mobile #hot .header .title::before { background-image: var(--m-icon-hot); }
+.fever-mobile .header .title.kindling::before { background-image: var(--m-icon-kindling); }
+.fever-mobile .header .title.saved::before { background-image: var(--m-icon-saved); }
+.fever-mobile .header .title.sparks::before { background-image: var(--m-icon-sparks); }
+.fever-mobile .header .title.search::before { background-image: var(--m-icon-search); }
+.fever-mobile .header .title.unread::before { margin-top: -8px; background-image: var(--m-icon-unread); }
+.fever-mobile .header .title.spinning::before { background: var(--m-spinner-dark) 4px 6px no-repeat; background-size: 16px 16px; }
+.fever-mobile #fever .header .left.logo { top: 6px; left: 7px; width: 29px; height: 34px; background: var(--m-logo) 0 0 no-repeat; background-size: 29px 34px; }
+.fever-mobile #fever .header .left.logo.spinning { background-image: var(--m-logo-spinner); }
+.fever-mobile #fever .header .title { padding: 4px 0 0 44px; text-align: left; display: inline-block; }
+.fever-mobile #fever .footer .left { left: 8px; right: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.fever-mobile .box { position: relative; background-color: #FFF; border-radius: 9px; border: 1px solid #2E2E2E; padding: 2px; margin-bottom: 6px; }
+.fever-mobile .box.message { padding: 12px; font-size: 14px; line-height: 20px; }
+.fever-mobile .box.message .btn, .fever-mobile .box.message .text-button { margin-top: 8px; }
+
+.fever-mobile ul.list li, .fever-mobile ul.source-list li {
+  position: relative; min-height: 44px; background: #E5E5E5 var(--m-bg-row) 0 0 repeat-x; background-size: 1px 1000px;
+  border-top: 1px solid rgba(255,255,255,0.5); border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.fever-mobile ul.list li > button, .fever-mobile ul.list li > form, .fever-mobile ul.source-list li > button {
+  display: block; width: 100%; text-align: left; padding: 0 56px 0 40px; color: #333; font-weight: bold; font-size: 16px; line-height: 44px;
+  height: 44px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;
+}
+.fever-mobile ul.list li.empty-row { padding: 12px; font-size: 14px; }
+.fever-mobile #items ul.list li { padding: 12px 0; min-height: 0; }
+.fever-mobile #items ul.list li.new > button { color: #A10; }
+.fever-mobile #items ul.list li > button { white-space: normal; line-height: 20px; height: auto; padding-right: 8px; }
+/* iphone.css fades read rows to 0.5 opacity (about 2.7:1). A #666 text color
+   reaches 4.5:1 on the row; the favicon keeps the fade. */
+.fever-mobile ul.source-list li.read > button, .fever-mobile ul.list li.read > button { color: #666; }
+.fever-mobile ul.source-list li.read > button i.favicon, .fever-mobile ul.list li.read > button i.favicon { opacity: 0.6; }
+.fever-mobile #fever.hide-read ul.list li.read { display: none; }
+.fever-mobile #fever.hide-read ul.list #group-0.read, .fever-mobile #fever.hide-read ul.list #section-2 { display: block; }
+.fever-mobile ul.list li.read span.unread-count, .fever-mobile ul.list li.read span.saved-count { display: none; }
+.fever-mobile ul.list li.has-error > button { color: #A10; }
+.fever-mobile #items .item-content { color: #666; margin: 0 0 -2px; padding: 0 8px 0 40px; max-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.fever-mobile ul.list li form { padding-top: 9px; height: 44px; }
+/* iphone.css: the field (width - 69px) ends 11px inside the row. A block input
+   sits at the padding instead of on the form's 44px line, which clipped it. */
+.fever-mobile ul.list li#section-4 > form { padding-right: 11px; }
+.fever-mobile ul.list li#section-4 input[type=search] { display: block; width: 100%; }
+.fever-mobile ul.list li > span {
+  position: absolute; top: 12px; right: 8px; display: block; color: #FFF; background-color: #333; font-weight: bold; font-size: 14px;
+  line-height: 20px; height: 20px; padding: 0 11px; border-radius: 10px; pointer-events: none;
+}
+.fever-mobile ul.list li.hide-unread > span { display: none; }
+.fever-mobile ul.list li:first-child, .fever-mobile ul.source-list li:first-child { border-top: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+.fever-mobile ul.list li:last-child, .fever-mobile ul.source-list li:last-child { border-bottom: none; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; }
+.fever-mobile input[type=search] {
+  width: calc(100% - 8px); height: 26px; font-size: 16px; line-height: 20px; margin: 0; padding: 1px 8px 0; box-sizing: border-box;
+  border: 1px solid #bbb; border-radius: 13px; background: #fff;
+}
+
+.fever-mobile #feed-0::before, .fever-mobile #section-0::before, .fever-mobile #group-0::before,
+.fever-mobile #section-2::before, .fever-mobile #section-3::before, .fever-mobile #section-4::before {
+  position: absolute; top: 9px; left: 7px; display: block; width: 24px; height: 24px; content: ''; background-position: 50% 0;
+  background-repeat: no-repeat; background-size: 24px 48px; pointer-events: none;
+}
+.fever-mobile #feed-0::before { background-image: var(--m-icon-unread); }
+.fever-mobile #section-0::before { background-image: var(--m-icon-hot); }
+.fever-mobile #group-0::before { background-image: var(--m-icon-kindling); }
+.fever-mobile #section-2::before { background-image: var(--m-icon-saved); }
+.fever-mobile #section-3::before { background-image: var(--m-icon-sparks); }
+.fever-mobile #section-4::before { background-image: var(--m-icon-search); }
+
+/* mobile buttons */
+.fever-mobile .btn {
+  position: relative; display: inline-block; padding: 0 10px; min-height: 28px; line-height: 28px; font-weight: bold; color: #333; text-indent: 0;
+  background: #e5e5e5 var(--m-bg-btn) 0 0 repeat-x; background-size: 1px 56px; border: 1px solid #2E2E2E; border-radius: 15px;
+  max-width: 96px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+}
+.fever-mobile .btn, .fever-mobile .btn.menu { width: auto; height: auto; }
+.fever-mobile .btn:hover, .fever-mobile .btn:focus-visible { background-position: 0 0; }
+.fever-mobile .btn.text { color: #333; text-transform: none; font-weight: bold; margin: 0 6px 0 0; padding: 0 12px; }
+.fever-mobile .btn.text i { display: none; }
+.fever-mobile .btn[disabled] { opacity: .6; }
+.fever-mobile .btn.back { padding-left: 14px; }
+.fever-mobile .btn.back::before {
+  position: relative; top: 1px; left: -3px; content: ''; display: inline-block; width: 6px; height: 10px;
+  background: var(--m-icon-back) 0 0 no-repeat; background-size: 6px 20px;
+}
+.fever-mobile .btn.forward { padding-right: 16px; }
+.fever-mobile .btn.forward::after {
+  position: relative; top: 1px; right: -3px; content: ''; display: inline-block; width: 6px; height: 10px;
+  background: var(--m-icon-forward) 0 0 no-repeat; background-size: 6px 20px;
+}
+.fever-mobile .btn.spinning::after, .fever-mobile .btn.back.spinning::before {
+  width: 16px; height: 16px; top: 3px; background: var(--m-spinner) 0 0 no-repeat !important; background-size: 16px 16px !important;
+}
+.fever-mobile .btn.action { text-indent: -9999px; width: 46px; max-width: none; }
+.fever-mobile .btn.action::before {
+  position: absolute; top: 5px; left: 8px; content: ''; display: block; width: 30px; height: 17px;
+  background: var(--m-icon-action) 0 0 no-repeat; background-size: 30px 34px;
+}
+.fever-mobile .btn.safari { max-width: none; }
+.fever-mobile .btn.logout { max-width: none; }
+.fever-mobile .btn.menu { padding-right: 22px; max-width: 160px; background-image: none; background-color: #333; border: none; color: rgba(255,255,255,0.85); }
+.fever-mobile .btn.menu::after {
+  position: absolute; top: 11px; right: 7px; content: ''; display: inline-block; width: 10px; height: 6px;
+  background: var(--m-icon-menu) 0 0 no-repeat; background-size: 10px 6px; opacity: 0.6; pointer-events: none;
+}
+.fever-mobile .btn.menu select {
+  -webkit-appearance: none; appearance: none; background: transparent; border: none; color: inherit; font: bold 12px/28px Helvetica, Arial, sans-serif;
+  padding: 0; margin: 0; min-height: 28px;
+}
+.fever-mobile .paging { text-align: center; padding: 4px 0 12px; color: rgba(255,255,255,0.85); }
+.fever-mobile .paging .btn { max-width: none; }
+.fever-mobile .link-button { color: #ff8f80 !important; }
+
+/* mobile hot */
+.fever-mobile .control { text-align: center; }
+.fever-mobile .control form {
+  display: inline-block; text-align: right; margin: 0 0 7px; font-size: 12px; line-height: 36px; min-height: 36px; color: rgba(255,255,255,0.85);
+  background-color: #484848; border-radius: 18px; padding: 0 6px 0 12px; max-width: 100%; white-space: normal;
+}
+.fever-mobile #hot .box.degree { padding: 15px 2px 2px 54px; background: #fff var(--m-bg-temperature) 56px 5px no-repeat; background-size: 239px 9px; }
+@media (orientation: landscape) { .fever-mobile #hot .box.degree { background-image: var(--m-bg-temperature-landscape); background-size: 399px 9px; } }
+.fever-mobile .tmp { position: absolute; top: 5px; left: 9px; width: 39px; }
+.fever-mobile .num { display: block; width: 39px; height: 27px; text-indent: -9999px; overflow: hidden; background: var(--m-txt-tmp) 0 0 no-repeat; background-size: 39px 276px; margin: 0 0 2px; }
+.fever-mobile .num.n1 { height: 15px; }
+.fever-mobile .num.n2 { background-position: 0 -15px; height: 26px; }
+.fever-mobile .num.n3 { background-position: 0 -41px; height: 26px; }
+.fever-mobile .num.n4 { background-position: 0 -67px; }
+.fever-mobile .num.n5 { background-position: 0 -94px; height: 26px; }
+.fever-mobile .num.n6 { background-position: 0 -120px; }
+.fever-mobile .num.n7 { background-position: 0 -147px; height: 25px; }
+.fever-mobile .num.n8 { background-position: 0 -172px; }
+.fever-mobile .num.n9 { background-position: 0 -199px; }
+.fever-mobile .num.n0 { background-position: 0 -226px; }
+.fever-mobile .num.np { background-position: 0 -253px; height: 6px; }
+.fever-mobile .num.nd { background-position: 0 -259px; height: 17px; }
+.fever-mobile .link { padding: 0 0 8px; }
+.fever-mobile .link-title { font-size: 16px; line-height: 20px; padding: 12px 8px 4px 0; }
+.fever-mobile .link-title button { text-align: left; font-weight: bold; color: #333; }
+.fever-mobile .link-from { font-size: 10px; font-weight: bold; margin: 0 0 8px; }
+.fever-mobile .link-from span { font-weight: normal; }
+.fever-mobile .link .item-content { padding: 0 8px 0 0; margin: 0 0 8px; max-width: none; }
+.fever-mobile .link .source-list { margin: 8px 0 0; }
+.fever-mobile ul.source-list li { min-height: 36px; }
+.fever-mobile ul.source-list li > button { padding: 0 6px 0 30px; font-size: 11px; line-height: 36px; height: 36px; }
+.fever-mobile ul.source-list li i.favicon, .fever-mobile .list button i.favicon { position: absolute; left: 8px; top: 50%; margin-top: -11px; }
+.fever-mobile #items ul.list li i.favicon { top: 12px; margin-top: 0; }
+.fever-mobile i.favicon { padding: 2px; border: 1px solid rgba(0,0,0,0.1); background-color: #FFF; }
+.fever-mobile i.favicon.icon { padding: 3px; border: none; background-color: transparent; }
+.fever-mobile i.favicon i { display: block; }
+.fever-mobile i.favicon.icon i { background: var(--m-icon-favicon) -4px -6px no-repeat; background-size: 24px 48px; }
+.fever-mobile .link-from i.favicon { padding: 0; border: none; background: none; margin-top: -2px; }
+
+/* mobile article */
+.fever-mobile .box.item { padding-top: 32px; }
+.fever-mobile .meta h1 { font-size: 16px; line-height: 20px; padding: 12px 8px 0 32px; font-weight: bold; overflow-wrap: anywhere; }
+.fever-mobile .meta h1 a { color: #333; text-decoration: none; }
+.fever-mobile .meta h1:focus { outline: none; }
+.fever-mobile .meta h2 {
+  position: absolute; top: 2px; left: 2px; right: 2px; height: 29px; background: #E5E5E5 var(--m-bg-row) 0 0 repeat-x; background-size: 1px 1000px;
+  border-bottom: 1px solid rgba(0,0,0,0.02); border-top-left-radius: 6px; border-top-right-radius: 6px; font-size: 10px; font-weight: bold;
+}
+.fever-mobile .meta h2 .feed-name { display: block; padding: 3px 4px 0 30px; line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fever-mobile .meta h2 .feed-name i.favicon { position: absolute; top: 4px; left: 4px; }
+.fever-mobile .meta h2 .posted { position: absolute; top: 15px; left: 30px; font-weight: normal; font-size: 10px; line-height: 12px; }
+.fever-mobile .item .meta .state {
+  position: absolute; top: 42px; left: 8px; width: 17px; height: 18px; background: var(--m-bg-state) -32px 0 no-repeat; background-size: 64px 128px;
+  text-indent: -9999px; overflow: hidden; padding: 0;
+}
+.fever-mobile .item .meta .state::after { content: ''; position: absolute; inset: -13px; }
+.fever-mobile .new .meta .state { background-position: -32px -32px; }
+.fever-mobile .unread .meta .state { background-position: -32px -64px; }
+.fever-mobile .saved .meta .state { background-position: -32px -96px; }
+.fever-mobile .item-content { margin: 12px 8px 12px 32px; max-width: 600px; font-size: 14px; line-height: 21px; }
+.fever-mobile .item-content img { max-width: 100%; height: auto; }
+.fever-mobile .article-nav { min-height: 36px; }
+.fever-mobile .article-nav .left, .fever-mobile .article-nav .right { line-height: 30px; }
+
+/* mobile embedded view ("Elsewhere") */
+.fever-mobile #webview { background-color: #FFF; margin: 0 -8px; min-height: 100vh; }
+.fever-mobile #webview .header { background-color: #333; border-bottom: 3px solid #191919; padding: 0 8px; }
+.fever-mobile #webview .header .left { left: 8px; }
+.fever-mobile #webview .header .right { right: 8px; }
+.fever-mobile .webview-note { padding: 6px 8px; font-size: 12px; color: #333; background: #f2f2f2; }
+.fever-mobile .webview-note .link-button { color: #A10 !important; }
+.fever-mobile #iframe { display: block; width: 100%; height: calc(100vh - 90px); border: 0; }
+
+/* mobile notices */
+.fever-mobile .mobile-notice {
+  position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 300; padding: 10px 40px 10px 12px;
+  background: #484848; color: #fff; border-radius: 9px; font-size: 13px; line-height: 18px; box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.fever-mobile .mobile-notice.error { background: #A10; }
+.fever-mobile .mobile-notice .link-button { color: #fff !important; margin-left: 6px; }
+.fever-mobile .mobile-notice .close {
+  position: absolute; top: 7px; right: 8px; width: 24px; height: 24px; text-indent: -9999px; overflow: hidden;
+  background: var(--m-form-close) 0 0 no-repeat; background-size: 24px 24px;
+}
+
+/* mobile preferences dialog */
+.fever-mobile #dialog-container { position: fixed; z-index: 500; top: 64px; left: 16px; right: 16px; max-width: 420px; margin: 0 auto; max-height: calc(100vh - 80px); overflow-y: auto; }
+.fever-mobile #dialog-container .box { border-color: rgba(0,0,0,0.75); }
+.fever-mobile #dialog {
+  position: relative; border-radius: 6px; padding: 12px; color: #FFF; font-weight: bold;
+  background: #333 var(--m-bg-form) 0 0 repeat-x; background-size: 1px 65px;
+}
+.fever-mobile #dialog h1, .fever-mobile #dialog h2 { color: rgba(255,255,255,0.85); font-size: 16px; margin: 0 30px 12px 0; }
+.fever-mobile #dialog h2 { font-size: 12px; }
+.fever-mobile #dialog .close {
+  position: absolute; top: 8px; right: 8px; display: block; text-indent: -9999px; overflow: hidden; width: 28px; height: 28px;
+  background: var(--m-form-close) 2px 2px no-repeat; background-size: 24px 24px;
+}
+.fever-mobile #dialog .btn { display: block; width: 100%; text-align: center; max-width: 100%; margin: 0 0 8px; min-height: 36px; line-height: 36px; box-sizing: border-box; }
+.fever-mobile #dialog .btn.default { background-color: #fff; }
+.fever-mobile #dialog .dialog-error { color: #ffb3a8; margin: 0 0 8px; }
+.fever-mobile label.checkbox {
+  position: relative; display: block; width: 100%; box-sizing: border-box; padding: 0 0 0 32px; margin: 0 0 12px; color: #fff; font-weight: bold;
+  line-height: 24px; min-height: 28px; background: var(--m-form-checkbox) 0 0 no-repeat; background-size: 24px 48px; cursor: pointer;
+}
+.fever-mobile label.checkbox.checked { background-position: 0 -24px; }
+.fever-mobile label.checkbox input { position: absolute; opacity: 0; width: 24px; height: 24px; left: 0; top: 0; margin: 0; }
+.fever-mobile label.checkbox:focus-within { outline: 2px solid #fff; outline-offset: 2px; }
+.fever-mobile #action-mark-as-read { background-color: rgba(255,255,255,0.1); padding: 6px 4px 0; border-radius: 6px; margin: 0 -4px 12px; }
+
+/* desktop-style dialogs opened while compact */
+html[data-layout="compact"] .fever-reader > #dialog-container #dialog-window { margin-top: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fever-mobile .screen { animation: none; }
+}
