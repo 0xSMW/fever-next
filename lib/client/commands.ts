@@ -3,24 +3,15 @@
  * help overlay renders it, so behavior and documentation cannot drift.
  * Source: firewall/app/views/default/scripts/reader.js keydown handler.
  */
-export type CommandId =
-  | "section-hot" | "section-kindling" | "section-saved" | "section-sparks" | "section-search"
-  | "undo" | "mark-active-read" | "mark-all-read" | "refresh-all" | "refresh-active"
-  | "save" | "new-feed" | "new-group" | "toggle-read" | "toggle-feeds" | "preferences"
-  | "next-item" | "previous-item" | "page-next" | "page-previous" | "toggle-content"
-  | "blacklist-link" | "blacklist-page" | "open" | "visit-site" | "visit-site-read"
-  | "edit-active" | "escape" | "focus-search" | "pane-left" | "pane-right"
-  | "list-up" | "list-down" | "source-up" | "source-down" | "help";
-
-export interface CommandDef {
-  id: CommandId;
+interface CommandDefinition {
+  id: string;
   /** Display labels, e.g. ["Shift", "A"]; alternatives are separate entries. */
   keys: string[][];
   label: string;
   group: "Sections" | "Reading" | "Navigation" | "Managing";
 }
 
-export const COMMANDS: CommandDef[] = [
+const DEFINITIONS = [
   { id: "section-hot", keys: [["1"]], label: "Hot", group: "Sections" },
   { id: "section-kindling", keys: [["2"]], label: "Kindling", group: "Sections" },
   { id: "section-saved", keys: [["3"]], label: "Saved", group: "Sections" },
@@ -60,10 +51,24 @@ export const COMMANDS: CommandDef[] = [
   { id: "preferences", keys: [["P"]], label: "Preferences", group: "Managing" },
   { id: "blacklist-page", keys: [["Shift", "B"]], label: "Edit the blacklist", group: "Managing" },
   { id: "help", keys: [["?"]], label: "Show this keyboard help", group: "Managing" },
-];
+] as const satisfies readonly CommandDefinition[];
+
+export type CommandId = typeof DEFINITIONS[number]["id"];
+export interface KeyBinding { key: string; shift: boolean | "any"; }
+export interface CommandDef extends CommandDefinition { id: CommandId; bindings: KeyBinding[]; }
+const KEY_NAMES: Record<string, string> = { "←": "ArrowLeft", "→": "ArrowRight", "↑": "ArrowUp", "↓": "ArrowDown", Space: " ", Esc: "Escape" };
+export const COMMANDS: CommandDef[] = DEFINITIONS.map(definition => ({
+  ...definition, keys: definition.keys.map(keys => [...keys]),
+  bindings: definition.keys.map(keys => {
+    const label = keys[keys.length - 1];
+    const key = KEY_NAMES[label] ?? label.toLowerCase();
+    const anyShift = ["0", "1", "2", "3", "4", "5", "enter", "Escape", "/", "?", "ArrowLeft", "ArrowRight"].includes(key);
+    return { key, shift: anyShift ? "any" : keys.some(part => part === "Shift") };
+  }),
+}));
 
 /** Core letter keys, used to report sharing-service shortcut conflicts. */
-export const CORE_LETTERS = new Set(["a", "b", "f", "h", "i", "j", "k", "l", "n", "o", "p", "r", "s", "u", "v", "z", "0", "1", "2", "3", "4", "5"]);
+export const CORE_LETTERS = new Set(COMMANDS.flatMap(command => command.bindings.filter(binding => /^[a-z0-9]$/.test(binding.key)).map(binding => binding.key)));
 
 /** True when the event target is a text-entry context we must never intercept. */
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -82,42 +87,7 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 export function commandForEvent(event: KeyboardEvent): CommandId | null {
   if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return null;
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
-  const key = event.key;
-  const shift = event.shiftKey;
-  switch (key) {
-    case "1": return "section-hot";
-    case "2": return "section-kindling";
-    case "3": return "section-saved";
-    case "4": return "section-sparks";
-    case "5": return "section-search";
-    case "0": return "toggle-content";
-    case "Enter": return "toggle-content";
-    case " ": case "Spacebar": return shift ? "page-previous" : "page-next";
-    case "Escape": case "Esc": return "escape";
-    case "/": return "focus-search";
-    case "?": return "help";
-    case "ArrowLeft": return "pane-left";
-    case "ArrowRight": return "pane-right";
-    case "ArrowUp": return shift ? "source-up" : "list-up";
-    case "ArrowDown": return shift ? "source-down" : "list-down";
-  }
-  switch (key.toLowerCase()) {
-    case "z": return shift ? null : "undo";
-    case "a": return shift ? "mark-all-read" : "mark-active-read";
-    case "r": return shift ? "refresh-active" : "refresh-all";
-    case "s": return shift ? null : "save";
-    case "n": return shift ? "new-group" : "new-feed";
-    case "u": return shift ? null : "toggle-read";
-    case "f": return shift ? null : "toggle-feeds";
-    case "p": return shift ? null : "preferences";
-    case "j": return shift ? "source-down" : "next-item";
-    case "k": return shift ? "source-up" : "previous-item";
-    case "b": return shift ? "blacklist-page" : "blacklist-link";
-    case "o": return shift ? null : "open";
-    case "v": return shift ? "visit-site-read" : "visit-site";
-    case "i": return shift ? null : "edit-active";
-    case "h": return shift ? null : "pane-left";
-    case "l": return shift ? null : "pane-right";
-  }
-  return null;
+  const alias = event.key === "Esc" ? "Escape" : event.key === "Spacebar" ? " " : event.key;
+  const key = alias.length === 1 || alias === "Enter" ? alias.toLowerCase() : alias;
+  return COMMANDS.find(command => command.bindings.some(binding => binding.key === key && (binding.shift === "any" || binding.shift === event.shiftKey)))?.id ?? null;
 }
