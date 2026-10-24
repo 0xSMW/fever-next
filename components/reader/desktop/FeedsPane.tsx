@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FeedDTO, ItemDTO, ReaderView, ViewState } from "@/lib/contracts";
+import type { FeedDTO, ReaderView, ViewState } from "@/lib/contracts";
 import { readerHref } from "@/lib/client/url-state";
 import { alphaKey, feedTitle } from "@/lib/client/format";
 import type { ReaderController } from "../controller";
@@ -12,7 +12,6 @@ interface Props {
   ctl: ReaderController;
   data: ReaderView;
   view: ViewState;
-  items: ItemDTO[];
   paneFocused: boolean;
   cursor: string | null;
   openMenu: (anchor: HTMLElement, label: string, items: MenuItem[]) => void;
@@ -30,7 +29,7 @@ export function feedStatusText(feed: FeedDTO): string {
   return parts.join("; ");
 }
 
-export function FeedsPane({ ctl, data, view, items, paneFocused, cursor, openMenu, onDragState }: Props) {
+export function FeedsPane({ ctl, data, view, paneFocused, cursor, openMenu, onDragState }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   // reader.js marks #feeds-container .scrollable only when the list overflows;
   // reader.css shows the alphabet strip only then.
@@ -44,7 +43,7 @@ export function FeedsPane({ ctl, data, view, items, paneFocused, cursor, openMen
     if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
     return () => observer.disconnect();
   }, []);
-  const feeds = useMemo(() => visibleScopeFeeds(data, view, items), [data, view, items]);
+  const feeds = useMemo(() => visibleScopeFeeds(data, view), [data, view]);
   const label = feedCountLabel(view);
   const total = scopeTotal(data, view, feeds);
   const counted = showsCounts(data, label);
