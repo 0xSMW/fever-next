@@ -3,11 +3,12 @@ import { SaxesParser } from "saxes";
 import type { FeedDTO, ImportResult } from "@/lib/contracts";
 import type { OwnerContext } from "@/lib/auth";
 import { assertOwner } from "@/lib/auth";
-import { executeDomainCommand, getNavigation } from "@/lib/domain";
-import { enqueueRefresh } from "@/lib/jobs";
+import { executeDomainCommand } from "@/lib/domain/commands";
+import { getSubscriptionCatalog } from "@/lib/domain/catalog";
+import { refreshAfterChange } from "./refresh";
 import { HttpError, xmlText } from "./http";
 
-interface Outline { title: string; url?: string; group?: string; isSpark: boolean; }
+interface Outline { title: string; url: string; group?: string; isSpark: boolean; }
 export interface OpmlPreview { title: string; feeds: Outline[]; groups: string[]; warnings: string[]; }
 export function parseOpml(xml: string, importGroups: boolean): OpmlPreview {
   if (Buffer.byteLength(xml, "utf8") > 5_242_880) throw new HttpError("The OPML file exceeds 5 MiB.", 413, "OPML_TOO_LARGE");
@@ -71,13 +72,12 @@ export async function importOpml(owner: OwnerContext, xml: string, importGroups:
   await assertOwner(owner);
   const preview = parseOpml(xml, importGroups);
   const result: ImportResult = { feedsAdded: 0, groupsAdded: 0, membershipsAdded: 0, skipped: 0, warnings: [...preview.warnings] };
-  const view = await getNavigation(owner);
+  const view = await getSubscriptionCatalog(owner);
   const groups = new Map(view.groups.map(group => [group.title, group.id]));
-  const memberships = new Set(view.feeds.flatMap(feed => feed.groupIds.map(group => `${feed.id}:${group}`)));
   for (const title of preview.groups) {
     if (groups.has(title)) continue;
     const created = await executeDomainCommand(owner, "group.create", { title });
-    groups.set(title, Number(created.id));
+    groups.set(title, created.id);
     if (created.created) result.groupsAdded++;
   }
   const refreshIds = new Set<number>();
@@ -85,15 +85,9 @@ export async function importOpml(owner: OwnerContext, xml: string, importGroups:
     try {
       const groupId = feed.group ? groups.get(feed.group) : undefined;
       const created = await executeDomainCommand(owner, "feed.create", { url: feed.url, title: feed.title, isSpark: feed.isSpark, groupIds: groupId ? [groupId] : [] });
-      const feedId = Number(created.id);
-      if (!Number.isSafeInteger(feedId) || feedId <= 0) throw new Error("Missing subscription identity.");
+      const feedId = created.id;
       if (created.created) result.feedsAdded++;
-      // Existing subscriptions keep their details, but each imported membership is additive.
-      if (groupId && !memberships.has(`${feedId}:${groupId}`)) {
-        await executeDomainCommand(owner, "membership.add", { feedId, groupId });
-        memberships.add(`${feedId}:${groupId}`);
-        result.membershipsAdded++;
-      }
+      result.membershipsAdded += created.membershipsAdded;
       if (feed.isSpark && !created.created) await executeDomainCommand(owner, "feed.update", { id: feedId, url: feed.url, isSpark: true });
       if (!created.created) result.skipped++;
       refreshIds.add(feedId);
@@ -104,15 +98,15 @@ export async function importOpml(owner: OwnerContext, xml: string, importGroups:
     }
   }
   for (const id of refreshIds) {
-    try { await enqueueRefresh(owner, { scope: "feed", id }); }
-    catch { result.warnings.push("A subscription was imported, but its refresh could not be queued. Refresh it from the reader."); }
+    const refresh = await refreshAfterChange(owner, { scope: "feed", id });
+    result.warnings.push(...refresh.warnings.map(warning => `Feed ${id}: ${warning}`));
   }
   return result;
 }
 
 export async function exportOpml(owner: OwnerContext, options: { groupIds: number[]; flatten: boolean; includeSparks: boolean }) {
   await assertOwner(owner);
-  const view = await getNavigation(owner);
+  const view = await getSubscriptionCatalog(owner);
   const all = { id: 0, title: "All", feedIds: view.feeds.filter(feed => !feed.isSpark).map(feed => feed.id) };
   const groups = new Map([all, ...view.groups.filter(group => group.id > 0)].map(group => [group.id, group]));
   const ids = options.groupIds.length ? options.groupIds : [...groups.keys()];
@@ -123,7 +117,7 @@ export async function exportOpml(owner: OwnerContext, options: { groupIds: numbe
   const title = `Fever${groupTitle ? ` // ${groupTitle}` : ""}`;
   const filename = `fever${groupTitle ? `-${groupTitle.normalize("NFKD").replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || "group"}` : ""}.opml`;
   const output = new Set<number>();
-  const outline = (feed: FeedDTO) => `    <outline type="rss" text="${xmlText(feed.title)}" title="${xmlText(feed.title)}" xmlUrl="${xmlText(feed.url)}" htmlUrl="${xmlText(feed.siteUrl)}"/>`;
+  const outline = (feed: Pick<FeedDTO, "title" | "url" | "siteUrl">) => `    <outline type="rss" text="${xmlText(feed.title)}" title="${xmlText(feed.title)}" xmlUrl="${xmlText(feed.url)}" htmlUrl="${xmlText(feed.siteUrl)}"/>`;
   const body: string[] = [];
   for (const id of ids) {
     const group = groups.get(id)!;
