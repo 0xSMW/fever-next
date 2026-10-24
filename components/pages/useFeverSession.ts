@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionDTO } from "@/lib/contracts";
 import { apiGet } from "@/lib/client/api";
-import { describeError, type DescribedError } from "./api-errors";
+import { describeError, type DescribedError } from "@/lib/client/errors";
 
 export type SessionState =
   | { status: "loading" }
