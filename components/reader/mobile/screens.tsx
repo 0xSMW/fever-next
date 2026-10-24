@@ -88,10 +88,10 @@ export function GroupsScreen({ data, view, now, refreshing, onSection, onGroup, 
 
 /* ---------------- feeds ---------------- */
 
-export function FeedsScreen({ data, view, items, title, titleClass, onBack, onFeed }: {
-  data: ReaderView; view: ViewState; items: ItemDTO[]; title: string; titleClass: string; onBack: () => void; onFeed: (id: number) => void;
+export function FeedsScreen({ data, view, title, titleClass, onBack, onFeed }: {
+  data: ReaderView; view: ViewState; title: string; titleClass: string; onBack: () => void; onFeed: (id: number) => void;
 }) {
-  const feeds = visibleScopeFeeds(data, view, items);
+  const feeds = visibleScopeFeeds(data, view);
   const label = feedCountLabel(view);
   const total = scopeTotal(data, view, feeds);
   const counted = showsCounts(data, label);
