@@ -1,60 +1,74 @@
 import "server-only";
-import type { CommandAction } from "../contracts";
+import type { DomainCommandAction, DomainCommandPayload, DomainCommandResult } from "../command-contract";
 import { DomainError, enumeration, ids, integer, object, rejectUnknown, text } from "../validation";
 import { SECTIONS } from "./options";
 import { getViewState, savePreferences, saveView } from "./preferences";
 import { markScopeRead, mutateItems, undoOperation, undoRecentlyRead } from "./state";
 import type { OwnerContext } from "./types";
 
-/** Authentication and CSRF belong at the HTTP boundary; ownership is enforced again by each service. */
-export async function executeDomainCommand(owner: OwnerContext, action: CommandAction | string, payload: unknown): Promise<Record<string, unknown>> {
-  switch (action) {
-    case "feed.create": return (await import("./subscriptions")).createFeed(owner, payload);
-    case "feed.update": return (await import("./subscriptions")).updateFeed(owner, payload);
-    case "feed.delete": return (await import("./subscriptions")).deleteFeed(owner, payload);
-    case "feed.authenticate": return (await import("./subscriptions")).authenticateFeed(owner, payload);
-    case "group.create": return (await import("./subscriptions")).createGroup(owner, payload);
-    case "group.update": return (await import("./subscriptions")).updateGroup(owner, payload);
-    case "group.delete": return (await import("./subscriptions")).deleteGroup(owner, payload);
-    case "membership.add": return (await import("./subscriptions")).changeMembership(owner, payload, true);
-    case "membership.remove": return (await import("./subscriptions")).changeMembership(owner, payload, false);
-    case "sparks.update": return (await import("./subscriptions")).updateSparks(owner, payload);
-    case "sparks.delete": return (await import("./subscriptions")).deleteSparks(owner, payload);
-    case "preferences.save": return savePreferences(owner, payload);
-    case "view.save": return saveView(owner, payload);
-    case "items.read": case "items.unread": case "items.save": case "items.unsave": {
-      const input = object(payload);
-      rejectUnknown(input, ["ids"]);
-      return mutateItems(owner, action.slice(6) as "read" | "unread" | "save" | "unsave", ids(input.ids));
-    }
-    case "scope.read": {
-      const input = object(payload);
-      rejectUnknown(input, ["scope", "id", "before"]);
-      const scope = enumeration(input.scope, "scope", ["all", "group", "feed", "sparks"] as const);
-      return markScopeRead(owner, { scope, before: integer(input.before, "before"), ...(input.id === undefined ? {} : { id: integer(input.id, "id", 1) }) });
-    }
-    case "items.undo": {
-      const input = object(payload);
-      rejectUnknown(input, ["section", "operationId"]);
-      if (input.operationId !== undefined) return undoOperation(owner, integer(input.operationId, "operationId", 1));
-      const section = input.section === undefined ? (await getViewState(owner)).view.section : enumeration(input.section, "section", SECTIONS);
-      return undoRecentlyRead(owner, section);
-    }
-    case "blacklist.save": {
-      const input = object(payload);
-      rejectUnknown(input, ["rules"]);
-      try {
-        const rules = text(input.rules, "rules", 65536);
-        const { saveBlacklist } = await import("./blacklist");
-        return { ...await saveBlacklist(owner, rules) };
+const itemMutation = (action: "read" | "unread" | "save" | "unsave") => (owner: OwnerContext, payload: unknown) => {
+  const input = object(payload);
+  rejectUnknown(input, ["ids"]);
+  return mutateItems(owner, action, ids(input.ids));
+};
+
+/** One checked inventory; heavy handlers stay lazy so item commands do not load them. */
+const handlers = {
+  "feed.create": async (owner, payload) => (await import("./subscriptions")).createFeed(owner, payload),
+  "feed.update": async (owner, payload) => (await import("./subscriptions")).updateFeed(owner, payload),
+  "feed.delete": async (owner, payload) => (await import("./subscriptions")).deleteFeed(owner, payload),
+  "feed.authenticate": async (owner, payload) => (await import("./subscriptions")).authenticateFeed(owner, payload),
+  "group.create": async (owner, payload) => (await import("./subscriptions")).createGroup(owner, payload),
+  "group.update": async (owner, payload) => (await import("./subscriptions")).updateGroup(owner, payload),
+  "group.delete": async (owner, payload) => (await import("./subscriptions")).deleteGroup(owner, payload),
+  "membership.add": async (owner, payload) => (await import("./subscriptions")).changeMembership(owner, payload, true),
+  "membership.remove": async (owner, payload) => (await import("./subscriptions")).changeMembership(owner, payload, false),
+  "sparks.update": async (owner, payload) => (await import("./subscriptions")).updateSparks(owner, payload),
+  "sparks.delete": async (owner, payload) => (await import("./subscriptions")).deleteSparks(owner, payload),
+  "preferences.save": savePreferences,
+  "view.save": saveView,
+  "items.read": itemMutation("read"),
+  "items.unread": itemMutation("unread"),
+  "items.save": itemMutation("save"),
+  "items.unsave": itemMutation("unsave"),
+  "scope.read": async (owner, payload) => {
+    const input = object(payload);
+    rejectUnknown(input, ["scope", "id", "before"]);
+    const scope = enumeration(input.scope, "scope", ["all", "group", "feed", "sparks"] as const);
+    return markScopeRead(owner, { scope, before: integer(input.before, "before"), ...(input.id === undefined ? {} : { id: integer(input.id, "id", 1) }) });
+  },
+  "items.undo": async (owner, payload) => {
+    const input = object(payload);
+    rejectUnknown(input, ["section", "operationId"]);
+    if (input.operationId !== undefined) return undoOperation(owner, integer(input.operationId, "operationId", 1));
+    const section = input.section === undefined ? (await getViewState(owner)).view.section : enumeration(input.section, "section", SECTIONS);
+    return undoRecentlyRead(owner, section);
+  },
+  "blacklist.save": async (owner, payload) => {
+    const input = object(payload);
+    rejectUnknown(input, ["rules"]);
+    const rules = text(input.rules, "rules", 65536);
+    const { saveBlacklist, BlacklistValidationError } = await import("./blacklist");
+    try { return await saveBlacklist(owner, rules); }
+    catch (error) {
+      if (error instanceof BlacklistValidationError) {
+        throw new DomainError(error.message, "INVALID_BLACKLIST", 422, {
+          rules: error.message,
+          ...Object.fromEntries(error.issues.map(issue => [`rules.${issue.position}`, issue.message])),
+        });
       }
-      catch (error) {
-        if (error && typeof error === "object" && "code" in error && error.code === "INVALID_BLACKLIST") {
-          throw new DomainError(error instanceof Error ? error.message : "Invalid blacklist rules.", "INVALID_BLACKLIST", 422, { rules: error instanceof Error ? error.message : "Review the blacklist syntax." });
-        }
-        throw error;
-      }
+      throw error;
     }
-    default: throw new DomainError(`Unsupported reader command: ${action}.`, "UNSUPPORTED_COMMAND", 400);
-  }
+  },
+} satisfies { [A in DomainCommandAction]: (owner: OwnerContext, payload: unknown) => Promise<DomainCommandResult<A>> };
+
+export function isDomainCommandAction(value: string): value is DomainCommandAction {
+  return Object.prototype.hasOwnProperty.call(handlers, value);
+}
+
+export function executeDomainCommand<A extends DomainCommandAction>(owner: OwnerContext, action: A, payload: DomainCommandPayload<A>): Promise<DomainCommandResult<A>>;
+export function executeDomainCommand(owner: OwnerContext, action: string, payload: unknown): Promise<DomainCommandResult<DomainCommandAction>>;
+export async function executeDomainCommand(owner: OwnerContext, action: string, payload: unknown): Promise<DomainCommandResult<DomainCommandAction>> {
+  if (!isDomainCommandAction(action)) throw new DomainError(`Unsupported reader command: ${action}.`, "UNSUPPORTED_COMMAND", 400);
+  return handlers[action](owner, payload);
 }
