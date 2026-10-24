@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { createDefaultPreferences, getConfig, SCHEMA_VERSION } from "@/lib/config";
+import { getConfig, SCHEMA_VERSION } from "@/lib/config";
+import { createDefaultPreferences } from "@/lib/reader-policy";
 import { getDb } from "@/lib/db/client";
 import { favicons, feverCredentials, installation, owners, readerPreferences, readerViewState, sharingServices, stateOperations } from "@/lib/db/schema";
 import { defaultFaviconRecord } from "./default-favicon";
