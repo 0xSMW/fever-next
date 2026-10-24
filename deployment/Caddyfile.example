@@ -1,0 +1,11 @@
+# Replace this example hostname and retain the original request path, including any
+# configured Next base path. Run Caddy on the host with its normal TLS state backup.
+reader.example.com {
+    encode zstd gzip
+    # TLS terminates here; no PHP handler remains on the switched public origin.
+    reverse_proxy 127.0.0.1:3000 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    header Strict-Transport-Security "max-age=31536000"
+}
