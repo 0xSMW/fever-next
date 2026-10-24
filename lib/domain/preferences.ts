@@ -1,22 +1,18 @@
 import "server-only";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
-import type { Preferences, ReaderQuery, ViewState } from "../contracts";
+import type { PersistedPreferences, Preferences, ReaderQuery, ViewState } from "../contracts";
 import { getDb } from "../db/client";
 import { owners, readerPreferences, readerViewState, sharingServices } from "../db/schema";
 import { epochNow } from "../db/numbers";
 import { DomainError, integer, object, text } from "../validation";
 import { DEFAULT_PREFERENCES, DEFAULT_VIEW, preferencePatch, viewPatch } from "./options";
-import { beginDomainMutation } from "./guard";
+import { assertOwnerContext, withDomainMutation } from "./transaction";
 import { journal } from "./journal";
+import { isDeviceKey, READER_LIMITS } from "../reader-policy";
 import type { DomainDb, OwnerContext } from "./types";
 
-export function assertOwner(owner: OwnerContext) {
-  integer(owner.id, "owner", 1);
-  text(owner.email, "owner email", 320, false);
-}
-
-export async function getPreferences(owner: OwnerContext, db: DomainDb = getDb()): Promise<Preferences & { version: number }> {
-  assertOwner(owner);
+export async function getPreferences(owner: OwnerContext, db: DomainDb = getDb()): Promise<PersistedPreferences> {
+  assertOwnerContext(owner);
   const [stored] = await db.select({ preferences: readerPreferences }).from(readerPreferences).innerJoin(owners, eq(owners.id, readerPreferences.ownerId))
     .where(and(eq(readerPreferences.ownerId, owner.id), eq(owners.email, owner.email))).limit(1);
   const row = stored?.preferences;
@@ -34,13 +30,13 @@ export async function getPreferences(owner: OwnerContext, db: DomainDb = getDb()
 }
 
 export function deviceKey(value: unknown): string {
-  const key = value === undefined ? "default" : text(value, "deviceKey", 128, false);
-  if (!/^[a-zA-Z0-9_-]+$/.test(key)) throw new DomainError("Invalid reader device key.");
+  const key = value === undefined ? "default" : text(value, "deviceKey", READER_LIMITS.deviceKey, false);
+  if (!isDeviceKey(key)) throw new DomainError("Invalid reader device key.");
   return key;
 }
 
 export async function getViewState(owner: OwnerContext, key = "default", db: DomainDb = getDb()) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const [row] = await db.select().from(readerViewState).where(and(eq(readerViewState.ownerId, owner.id), eq(readerViewState.deviceId, key))).limit(1);
   const view = { ...DEFAULT_VIEW };
   if (row) for (const name of Object.keys(DEFAULT_VIEW) as (keyof ViewState)[]) Object.assign(view, { [name]: row[name] });
@@ -49,11 +45,10 @@ export async function getViewState(owner: OwnerContext, key = "default", db: Dom
 
 /** Called only by explicit reader visits. Reading-session time is separate from login expiry. */
 export async function captureReaderView(owner: OwnerContext, query: ReaderQuery & { deviceKey?: string }, preferences: Preferences) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const patch = viewPatch(query);
   const key = deviceKey(query.deviceKey);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
+  return withDomainMutation(owner, undefined, async (tx) => {
     await tx.insert(readerViewState).values({ ownerId: owner.id, deviceId: key }).onConflictDoNothing();
     const [row] = await tx.select().from(readerViewState).where(and(eq(readerViewState.ownerId, owner.id), eq(readerViewState.deviceId, key))).for("update");
     const now = epochNow();
@@ -71,8 +66,23 @@ export async function captureReaderView(owner: OwnerContext, query: ReaderQuery 
 
 export async function saveView(owner: OwnerContext, payload: unknown) {
   const input = object(payload);
+  const patch = viewPatch(input);
+  const key = deviceKey(input.deviceKey);
+  if (Object.keys(patch).length === 1 && patch.hasFocus !== undefined) {
+    return withDomainMutation(owner, undefined, async tx => {
+      await tx.insert(readerViewState).values({ ownerId: owner.id, deviceId: key }).onConflictDoNothing();
+      const [row] = await tx.select().from(readerViewState).where(and(eq(readerViewState.ownerId, owner.id), eq(readerViewState.deviceId, key))).for("update");
+      if (row.hasFocus !== patch.hasFocus) {
+        const [after] = await tx.update(readerViewState).set({ hasFocus: patch.hasFocus, version: row.version + 1, updatedAt: new Date() })
+          .where(and(eq(readerViewState.ownerId, owner.id), eq(readerViewState.deviceId, key))).returning();
+        await journal(tx, owner, "view.save", { readerViewState: [row] }, { readerViewState: [after] });
+      }
+      const stored = await getViewState(owner, key, tx);
+      return { view: stored.view, lastSessionAt: stored.lastSessionAt };
+    });
+  }
   const preferences = await getPreferences(owner);
-  const captured = await captureReaderView(owner, { ...viewPatch(input), deviceKey: deviceKey(input.deviceKey) }, preferences);
+  const captured = await captureReaderView(owner, { ...patch, deviceKey: key }, preferences);
   return { view: captured.view, lastSessionAt: captured.lastSessionAt };
 }
 
@@ -93,11 +103,10 @@ export async function resetRemovedSelection(db: DomainDb, owner: OwnerContext, r
 }
 
 export async function savePreferences(owner: OwnerContext, payload: unknown) {
-  assertOwner(owner);
+  assertOwnerContext(owner);
   const input = object(payload);
   const patch = preferencePatch(input);
-  return getDb().transaction(async (tx) => {
-    await beginDomainMutation(tx, owner);
+  return withDomainMutation(owner, undefined, async (tx) => {
     const [row] = await tx.select().from(readerPreferences).where(eq(readerPreferences.ownerId, owner.id)).for("update");
     if (!row) throw new DomainError("Reader preferences have not been initialized.", "NOT_CONFIGURED", 409);
     if (input.version !== undefined && integer(input.version, "version", 1) !== row.version) throw new DomainError("Preferences changed in another request. Reload them before saving.", "CONFLICT", 409);
