@@ -1,0 +1,11 @@
+/*
+ * Operator stylesheet for the compact (mobile) reader (PHP override-mobile.css).
+ * Linked after the app styles only when FEVER_CUSTOM_CSS=1, and only while the
+ * reader uses the compact layout. Load any page with ?overrideCss=off to turn
+ * it off in this browser, and ?overrideCss=on to turn it back on.
+ * See docs/CUSTOM_STYLES.md.
+ *
+ * Example (remove the comment markers to use):
+ *
+ * .fever-mobile .header .title { color: #fff; }
+ */
