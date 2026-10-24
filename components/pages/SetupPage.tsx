@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useCallback, useId, useRef, useState, type FormEvent } from "react";
 import type { SessionDTO } from "@/lib/contracts";
 import { apiGet, apiPost, appHref } from "@/lib/client/api";
-import { describeError, type DescribedError } from "./api-errors";
+import { describeError, type DescribedError } from "@/lib/client/errors";
 import { GetStarted } from "./GetStarted";
 import { PageShell } from "./PageShell";
 import { PasswordFields, passwordErrors } from "./PasswordFields";
