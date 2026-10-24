@@ -1,0 +1,27 @@
+.git
+.next
+node_modules
+**/.env
+**/.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.dump
+*.backup
+*.ndjson
+**/secrets
+**/backups
+**/migration-evidence
+coverage
+*.log
+deployment/operator.env
+deployment/runtime.env
+deployment/postgres.env
+
+# Repository-only tests, documentation and local tool output
+tests
+docs
+*.tsbuildinfo
+.DS_Store
