@@ -10,7 +10,7 @@ import { items } from "../lib/db/schema";
 import { assertSchema, assertTarget, connectTarget, lockTarget, reconcileSequences } from "../lib/migration/target";
 import { createFeed, updateFeed, deleteFeed, createGroup, updateGroup, deleteGroup, changeMembership, updateSparks, deleteSparks } from "../lib/domain/subscriptions";
 import { getNavigation, getReaderView } from "../lib/domain/reader";
-import { captureReaderView, getPreferences, getViewState, savePreferences } from "../lib/domain/preferences";
+import { captureReaderView, getPreferences, getViewState, savePreferences, saveView } from "../lib/domain/preferences";
 import { markScopeRead, mutateItems, undoOperation, undoRecentlyRead } from "../lib/domain/state";
 import { resolveDisplayOptions } from "../lib/domain/options";
 import { enqueueInstallationRefresh } from "../lib/jobs";
@@ -117,6 +117,17 @@ test("isolated PostgreSQL schema, domain and queue integration", { skip: !enable
       await sql("DELETE FROM items WHERE id=ANY($1::bigint[])", [[a, b]]);
     });
 
+    await t.test("createFeed reports only memberships actually inserted", async () => {
+      assert.equal(f1.membershipsAdded, 2);
+      assert.equal(f2.membershipsAdded, 1);
+      const repeat = await createFeed(owner, { url: `https://example.test/${prefix}/one.xml`, groupIds: [g1.id, g2.id] });
+      assert.equal(repeat.created, false);
+      assert.equal(repeat.membershipsAdded, 0);
+      const newlyJoined = await createFeed(owner, { url: `https://example.test/${prefix}/three.xml`, groupIds: [g2.id] });
+      assert.equal(newlyJoined.membershipsAdded, 1);
+      await changeMembership(owner, { feedId: f3.id, groupId: g2.id }, false);
+    });
+
     await t.test("feed/group lifecycle and many-to-many membership are transactional", async () => {
       assert.equal((await createGroup(owner, { title: "Kindling" })).id, 0);
       assert.equal((await createGroup(owner, { title: `${prefix} ONE` })).id, g1.id);
@@ -203,6 +214,11 @@ test("isolated PostgreSQL schema, domain and queue integration", { skip: !enable
       assert.equal(response.view.groupId, 0);
       assert.deepEqual((await sql("SELECT * FROM reader_view_state WHERE owner_id=1 ORDER BY device_id")).rows, before);
       assert.equal((await sql("SELECT count(*)::int AS count FROM state_operations")).rows[0].count, journals);
+      await saveView(owner, { hasFocus: "items", deviceKey: "integration" });
+      const focused = await getViewState(owner, "integration");
+      assert.equal(focused.view.hasFocus, "items");
+      assert.equal(focused.lastViewedAt, 10, "Focus persistence must not capture another visit");
+      assert.equal(focused.lastSessionAt, 5);
       const captured = await captureReaderView(owner, { section: "search", search: "query", deviceKey: "integration" }, preferences);
       assert.equal(captured.lastSessionAt, 10);
       assert.equal((await getViewState(owner, "integration")).view.previous, "kindling");
