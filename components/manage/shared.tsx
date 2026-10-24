@@ -4,8 +4,6 @@ import {
   createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState,
   type ButtonHTMLAttributes, type FormEvent, type InputHTMLAttributes, type ReactNode,
 } from "react";
-import { errorMessage, isApiError } from "@/lib/client/api";
-import type { DisplayOptions, Preferences } from "@/lib/contracts";
 import type { ManagementRequest } from "./types";
 
 /* ------------------------------------------------------------------ context */
@@ -33,21 +31,9 @@ export function usePanel(): PanelContextValue {
 
 /* ------------------------------------------------------------------ actions */
 
-export interface FormError {
-  message: string;
-  fields: Record<string, string>;
-  code?: string;
-  status?: number;
-}
-
-export function toFormError(error: unknown, fallback?: string): FormError {
-  return {
-    message: errorMessage(error, fallback),
-    fields: isApiError(error) && error.fields ? error.fields : {},
-    code: isApiError(error) ? error.code : undefined,
-    status: isApiError(error) ? error.status : undefined,
-  };
-}
+export type { ClientError as FormError } from "@/lib/client/errors";
+import { describeError as toFormError, type ClientError as FormError } from "@/lib/client/errors";
+export { toFormError };
 
 export type ActionResult<T> = { ok: true; value: T } | { ok: false; error?: FormError };
 
@@ -105,23 +91,10 @@ export function localError(fields: Record<string, string>): FormError | null {
 
 /* ------------------------------------------------------------------ labels */
 
-export const SORT_ORDER_LABELS = ["newest first", "oldest first"] as const;
-/** Value 2 was “unfiltered”; it now means sanitized rich content. */
-export const ITEM_ALLOWS_LABELS = ["text only", "text with images", "rich content (sanitized)"] as const;
 export const EXPIRATION_WEEKS = [2, 4, 6, 10] as const;
 
-export const HELP = {
-  hotlinking: "Some sites block images that are shown on other sites, returning a 403 Forbidden error or a different image. Fever can load those images through your installation instead.",
-  multiple: "Check each item you want. Use the filter to narrow a long list. You can also drag feeds onto groups and Sparks in the reader, or use a feed's menu.",
-  "feed-auth": "Some feeds require a username and password. If a feed needs them and they are missing, Fever asks when it refreshes the feed. Saved credentials are never shown again.",
-  "feed-title": "Optional. Leave blank to use the title the feed provides.",
-  excerpts: "Some feeds link straight to the page the author is commenting on. If excerpted, you might miss their commentary.",
-  sparks: "Sparks are inessential feeds that raise the temperature of links in Hot. Their unread items never appear in Kindling or your groups. Link blogs and sites that repost a lot are good Sparks.",
-  "service-url": "Most services have an address for adding new items. Fever replaces %t with the title, %u with the address and %e with the excerpt, each encoded, before opening it. Put # before an http or https address to have Fever's server request it in the background instead; nothing is sent until you choose the service on an item.",
-  "saved-feed": "When enabled, the saved items feed is listed on your Fever login page so feed readers can find it.",
-  "item-expiration": "Fever deletes unsaved items older than this. A shorter period uses less database space, but older Hot time ranges have less to work with. Saved items are never expired.",
-} as const;
-export type HelpTopic = keyof typeof HELP;
+export { HELP, HelpTip, type HelpTopic } from "../forms/HelpTip";
+import { HelpTip, type HelpTopic } from "../forms/HelpTip";
 
 /* ------------------------------------------------------------------ primitives */
 
@@ -139,24 +112,6 @@ export function Button({ variant = "plain", pending, children, className, type =
     >
       {children}
     </button>
-  );
-}
-
-export function HelpTip({ topic, label }: { topic: HelpTopic; label?: string }) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  return (
-    <span className="fm-help">
-      <button
-        type="button"
-        className="fm-help-toggle"
-        aria-expanded={open}
-        aria-controls={id}
-        aria-label={`Help${label ? `: ${label}` : ""}`}
-        onClick={() => setOpen((value) => !value)}
-      >?</button>
-      <span id={id} className="fm-help-text" role="note" hidden={!open}>{HELP[topic]}</span>
-    </span>
   );
 }
 
@@ -276,8 +231,6 @@ export function EmptyState({ children }: { children: ReactNode }) {
 
 /* ------------------------------------------------------------------ frame */
 
-export interface TabSpec<T extends string = string> { id: T; label: string; invalid?: boolean; help?: HelpTopic; }
-
 /**
  * The dialog form: dark title bar, optional tabs, white body and a right
  * aligned button row, after Fever's `#dialog form.tabbed` layout.
@@ -286,7 +239,7 @@ export function Frame<T extends string>({ title, subtitle, tabs, activeTab, onTa
   title: ReactNode; subtitle?: ReactNode; tabs?: readonly TabSpec<T>[]; activeTab?: T; onTabChange?: (tab: T) => void;
   onSubmit?: () => void; children: ReactNode; footer?: ReactNode; size?: "small" | "normal" | "wide"; busy?: boolean;
 }) {
-  const { titleId } = usePanel();
+  const { titleId, standalone } = usePanel();
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!busy) onSubmit?.();
@@ -294,12 +247,12 @@ export function Frame<T extends string>({ title, subtitle, tabs, activeTab, onTa
   return (
     <TabScope>
     <form className={`fm-frame fm-size-${size}${tabs ? " fm-tabbed" : ""}`} onSubmit={submit} noValidate aria-busy={busy || undefined}>
-      <header className="fm-header">
-        <h1 id={titleId}>{title}</h1>
+      {(!standalone || tabs) && <header className="fm-header">
+        {!standalone && <h1 id={titleId}>{title}</h1>}
         {tabs && activeTab !== undefined && onTabChange && (
           <TabList tabs={tabs} active={activeTab} onChange={onTabChange} />
         )}
-      </header>
+      </header>}
       <div className="fm-body">
         {subtitle && <h2 className="fm-subtitle">{subtitle}</h2>}
         {children}
@@ -310,63 +263,8 @@ export function Frame<T extends string>({ title, subtitle, tabs, activeTab, onTa
   );
 }
 
-export function tabId(base: string, tab: string) { return `${base}-tab-${tab}`; }
-export function panelId(base: string, tab: string) { return `${base}-panel-${tab}`; }
-
-const TabBaseContext = createContext("fm");
-
-function TabList<T extends string>({ tabs, active, onChange }: { tabs: readonly TabSpec<T>[]; active: T; onChange: (tab: T) => void }) {
-  const base = useContext(TabBaseContext);
-  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const move = (index: number) => {
-    const next = tabs[(index + tabs.length) % tabs.length];
-    onChange(next.id);
-    refs.current[next.id]?.focus();
-  };
-  return (
-    <div className="fm-tabs" role="tablist" aria-label="Sections">
-      {tabs.map((tab, index) => (
-        <button
-          key={tab.id}
-          ref={(node) => { refs.current[tab.id] = node; }}
-          type="button"
-          role="tab"
-          id={tabId(base, tab.id)}
-          aria-controls={panelId(base, tab.id)}
-          aria-selected={tab.id === active}
-          tabIndex={tab.id === active ? 0 : -1}
-          className={`fm-tab${tab.id === active ? " fm-tab-active" : ""}${tab.invalid ? " fm-tab-invalid" : ""}`}
-          onClick={() => onChange(tab.id)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight") { event.preventDefault(); move(index + 1); }
-            else if (event.key === "ArrowLeft") { event.preventDefault(); move(index - 1); }
-            else if (event.key === "Home") { event.preventDefault(); move(0); }
-            else if (event.key === "End") { event.preventDefault(); move(tabs.length - 1); }
-          }}
-        >
-          {tab.label}
-          {tab.invalid && <span className="fm-tab-flag" aria-label="(has errors)">!</span>}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Wrap a tabbed form so its tab and panel IDs are unique on the page. */
-export function TabScope({ children }: { children: ReactNode }) {
-  const base = useId().replace(/:/g, "");
-  return <TabBaseContext.Provider value={base}>{children}</TabBaseContext.Provider>;
-}
-
-/** Inactive panels stay mounted (hidden) so their values survive tab switches. */
-export function TabPanel({ tab, active, children }: { tab: string; active: boolean; children: ReactNode }) {
-  const base = useContext(TabBaseContext);
-  return (
-    <div role="tabpanel" id={panelId(base, tab)} aria-labelledby={tabId(base, tab)} hidden={!active} className="fm-panel">
-      {children}
-    </div>
-  );
-}
+export { TabList, TabScope, TabPanel, tabId, panelId, type TabSpec } from "../forms/Tabs";
+import { TabList, TabScope, type TabSpec } from "../forms/Tabs";
 
 export function Footer({ submitLabel, pending, pendingLabel, danger, disabled, cancelLabel = "Cancel", extra, onCancel }: {
   submitLabel?: string; pending?: boolean; pendingLabel?: string; danger?: boolean; disabled?: boolean;
@@ -469,98 +367,7 @@ export function MultiSelect({ legend, options, selected, onChange, help, emptyTe
 
 /* ------------------------------------------------------------------ display overrides */
 
-export type DisplayValues = Pick<DisplayOptions, "sortOrder" | "itemAllows" | "itemExcerpts" | "unreadCounts">;
-export const INHERIT_ALL: DisplayValues = { sortOrder: -1, itemAllows: -1, itemExcerpts: -1, unreadCounts: -1 };
-
-export function displayFrom(source?: Partial<DisplayOptions> | null): DisplayValues {
-  const pick = (value: unknown) => (typeof value === "number" && Number.isInteger(value) ? value : -1);
-  return {
-    sortOrder: pick(source?.sortOrder), itemAllows: pick(source?.itemAllows),
-    itemExcerpts: pick(source?.itemExcerpts), unreadCounts: pick(source?.unreadCounts),
-  };
-}
-
-export function globalDisplay(preferences?: Preferences | null): DisplayValues {
-  return {
-    sortOrder: preferences?.sortOrder ?? 0, itemAllows: preferences?.itemAllows ?? 1,
-    itemExcerpts: preferences?.itemExcerpts === false ? 0 : 1, unreadCounts: preferences?.unreadCounts ? 1 : 0,
-  };
-}
-
-/**
- * The four display overrides shared by feeds and groups. Each row has an
- * explicit “inherit” checkbox (`-1`), as in Fever's display-options templates;
- * the control shows the inherited value until the user overrides it.
- */
-export function DisplayOverrides({ value, onChange, inheritLabel, inherited, inheritedFrom, errors }: {
-  value: DisplayValues; onChange: (value: DisplayValues) => void; inheritLabel: string;
-  inherited: DisplayValues; inheritedFrom: string; errors?: FormError | null;
-}) {
-  const id = useId();
-  const set = <K extends keyof DisplayValues>(key: K, next: number) => onChange({ ...value, [key]: next });
-  const effective = (key: keyof DisplayValues) => (value[key] === -1 ? inherited[key] : value[key]);
-  const inheritBox = (key: keyof DisplayValues, overrideValue: number) => (
-    <label className="fm-inherit">
-      <input type="checkbox" checked={value[key] === -1}
-        onChange={(event) => set(key, event.currentTarget.checked ? -1 : overrideValue)} />
-      {inheritLabel}
-    </label>
-  );
-  return (
-    <div className="fm-display">
-      <p className="fm-hint">Settings marked “{inheritLabel}” follow {inheritedFrom}. Change a setting to override it.</p>
-      <fieldset className="fm-row fm-radio-row">
-        <legend className="fm-row-label">Item sort order</legend>
-        <div className="fm-row-control fm-override">
-          <div className="fm-radios">
-            {SORT_ORDER_LABELS.map((label, index) => (
-              <label key={label} className="fm-radio">
-                <input type="radio" name={`${id}-sort`} checked={effective("sortOrder") === index}
-                  onChange={() => set("sortOrder", index)} />
-                {label}
-              </label>
-            ))}
-          </div>
-          {inheritBox("sortOrder", effective("sortOrder"))}
-          {fieldError(errors, "sortOrder") && <p className="fm-field-error">{fieldError(errors, "sortOrder")}</p>}
-        </div>
-      </fieldset>
-      <div className="fm-row">
-        <div className="fm-row-label"><label htmlFor={`${id}-allows`}>Item content</label></div>
-        <div className="fm-row-control fm-override">
-          <select id={`${id}-allows`} className="fm-input fm-select" value={effective("itemAllows")}
-            onChange={(event) => set("itemAllows", Number(event.currentTarget.value))}>
-            {ITEM_ALLOWS_LABELS.map((label, index) => <option key={label} value={index}>{label}</option>)}
-          </select>
-          {inheritBox("itemAllows", effective("itemAllows"))}
-          {fieldError(errors, "itemAllows") && <p className="fm-field-error">{fieldError(errors, "itemAllows")}</p>}
-        </div>
-      </div>
-      <div className="fm-row">
-        <div className="fm-row-label"><span>Excerpts</span><HelpTip topic="excerpts" label="Excerpts" /></div>
-        <div className="fm-row-control fm-override">
-          <label className="fm-check-inline">
-            <input type="checkbox" checked={effective("itemExcerpts") > 0}
-              onChange={(event) => set("itemExcerpts", event.currentTarget.checked ? 1 : 0)} />
-            excerpt feed items
-          </label>
-          {inheritBox("itemExcerpts", effective("itemExcerpts"))}
-        </div>
-      </div>
-      <div className="fm-row">
-        <div className="fm-row-label"><span>Counts</span></div>
-        <div className="fm-row-control fm-override">
-          <label className="fm-check-inline">
-            <input type="checkbox" checked={effective("unreadCounts") > 0}
-              onChange={(event) => set("unreadCounts", event.currentTarget.checked ? 1 : 0)} />
-            show unread counts
-          </label>
-          {inheritBox("unreadCounts", effective("unreadCounts"))}
-        </div>
-      </div>
-    </div>
-  );
-}
+export { DisplayOverrides, INHERIT_ALL, displayFrom, globalDisplay, SORT_ORDER_LABELS, ITEM_ALLOWS_LABELS, type DisplayValues } from "../forms/DisplayOverrides";
 
 /* ------------------------------------------------------------------ misc */
 
@@ -585,9 +392,4 @@ export function safeHttpUrl(value: string | undefined | null): string | null {
   } catch {
     return null;
   }
-}
-
-export function numberResult(result: Record<string, unknown> | undefined, key: string): number | undefined {
-  const value = result?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
