@@ -1,11 +1,10 @@
 "use client";
+import { useReaderData } from "@/lib/client/useReaderData";
 
 import Link from "next/link";
-import { Fragment, useCallback, useEffect, useState } from "react";
-import type { ReaderView, SharingService } from "@/lib/contracts";
-import { apiGet, appHref } from "@/lib/client/api";
+import { Fragment } from "react";
+import { appHref } from "@/lib/client/api";
 import { COMMANDS, CORE_LETTERS, type CommandDef } from "@/lib/client/commands";
-import { describeError, type DescribedError } from "./api-errors";
 import { PageShell } from "./PageShell";
 import { ErrorNotice, Loading } from "./Status";
 import { useFeverSession } from "./useFeverSession";
@@ -61,21 +60,8 @@ function CommandTable({ group }: { group: CommandDef["group"] }) {
 }
 
 function ServiceShortcuts() {
-  const [services, setServices] = useState<SharingService[] | null>(null);
-  const [error, setError] = useState<DescribedError | null>(null);
-
-  const fetchServices = useCallback(() => {
-    apiGet<ReaderView>("/api/reader?capture=false").then(
-      (view) => setServices(view.preferences?.services ?? []),
-      (reason: unknown) => setError(describeError(reason, "Your sharing services could not be loaded.")),
-    );
-  }, []);
-  useEffect(fetchServices, [fetchServices]);
-  const retryLoad = () => {
-    setError(null);
-    setServices(null);
-    fetchServices();
-  };
+  const { view, error, reload: retryLoad } = useReaderData();
+  const services = view?.preferences.services;
 
   if (error) return <ErrorNotice title="Send-to shortcuts unavailable" error={error} onRetry={retryLoad} />;
   if (!services) return <Loading>Loading your sharing services…</Loading>;
