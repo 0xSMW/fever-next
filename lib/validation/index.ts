@@ -70,8 +70,3 @@ export function feedUrl(value: unknown): string {
   // URL parsing for network requests is performed separately by the safe transport.
   return raw;
 }
-
-export function errorResponse(error: unknown): { status: number; body: { error: string; code: string; fields?: Record<string, string> } } {
-  if (error instanceof DomainError) return { status: error.status, body: { error: error.message, code: error.code, fields: error.fields } };
-  return { status: 500, body: { error: "The request could not be completed.", code: "INTERNAL_ERROR" } };
-}
