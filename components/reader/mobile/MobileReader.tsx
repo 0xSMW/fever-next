@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ItemDTO, ViewState } from "@/lib/contracts";
-import { apiGet, errorMessage } from "@/lib/client/api";
+import type { ViewState } from "@/lib/contracts";
 import { SECTION_LABELS, feedTitle, groupTitle } from "@/lib/client/format";
 import { type MobileScreen, parseLocation, readerHref } from "@/lib/client/url-state";
 import type { OpenManagement, ReaderController } from "../controller";
@@ -14,9 +13,10 @@ import {
   ArticleScreen, FeedsScreen, GroupsScreen, HotScreen, ItemsScreen, MobilePreferences, type MobileSettings, WebviewScreen,
 } from "./screens";
 
-type Screen = MobileScreen | "webview";
-export interface MobileRoute { screen: Screen; itemId: number; linkId: number; url: string; }
-interface MobileHistory { view: ViewState; route: MobileRoute; depth: number; scrollY?: number; }
+import { readFeverHistory, writeFeverHistory, type FeverHistoryState, type MobileRoute } from "@/lib/client/reader-history";
+export type { MobileRoute } from "@/lib/client/reader-history";
+type Screen = MobileRoute["screen"];
+type MobileHistory = FeverHistoryState & { route: MobileRoute };
 
 const RANK: Record<Screen, number> = { groups: 0, feeds: 1, items: 2, hot: 2, article: 3, webview: 4 };
 
@@ -32,8 +32,8 @@ interface Props {
 }
 
 function readState(): MobileHistory | null {
-  const state = (window.history.state as { fever?: MobileHistory } | null)?.fever;
-  return state && state.route ? state : null;
+  const state = readFeverHistory();
+  return state?.route ? state as MobileHistory : null;
 }
 
 export function MobileReader({ store, ctl, openManagement, initialRoute, settings, onSettings, onDesktop, onLogout }: Props) {
@@ -48,10 +48,6 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
     itemId: initialRoute.itemId, linkId: 0, url: "",
   }));
   const [prefsOpen, setPrefsOpen] = useState(false);
-  /** A deep-linked article fetched by ID, kept for the item it was requested for. */
-  const [standalone, setStandalone] = useState<{ itemId: number; item: ItemDTO | null; error: string | null } | null>(null);
-  /** Increments on Try again after a failed deep-link request. */
-  const [standaloneAttempt, setStandaloneAttempt] = useState(0);
   const [nextPending, setNextPending] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   // The committed route, for event handlers and effects. Layout effects run before
@@ -65,7 +61,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
   // Seed the first history entry so Back works inside the app.
   const seedHistory = useEffectEvent(() => {
     if (!readState()) {
-      window.history.replaceState({ fever: { view: store.view, route: routeRef.current, depth: 0 } }, "", readerHref(store.view, { screen: routeRef.current.screen === "webview" ? null : routeRef.current.screen, itemId: routeRef.current.itemId }));
+      writeFeverHistory("replace", { view: store.view, route: routeRef.current, depth: 0 }, readerHref(store.view, { screen: routeRef.current.screen === "webview" ? null : routeRef.current.screen, itemId: routeRef.current.itemId }));
     }
   });
   useEffect(() => { seedHistory(); }, []);
@@ -90,10 +86,10 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
   const push = useCallback((next: MobileRoute, patch?: Partial<ViewState>) => {
     const current = readState();
     const depth = (current?.depth ?? 0) + 1;
-    window.history.replaceState({ fever: { ...(current ?? { view: store.view, route: routeRef.current, depth: 0 }), scrollY: window.scrollY } }, "", window.location.href);
+    writeFeverHistory("replace", { ...(current ?? { view: store.view, route: routeRef.current, depth: 0 }), scrollY: window.scrollY }, window.location.href);
     const target = patch ? { ...store.view, ...patch } : store.view;
     if (patch) store.navigate(patch, { history: "none" });
-    window.history.pushState({ fever: { view: target, route: next, depth } }, "", hrefFor(target, next));
+    writeFeverHistory("push", { view: target, route: next, depth }, hrefFor(target, next));
     setRoute(next);
     restoreY.current = 0;
   }, [hrefFor, store]);
@@ -111,14 +107,14 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
 
   const goBack = useCallback(() => {
     const current = readState();
-    if (current && current.depth > 0) { window.history.back(); return; }
+    if (current && (current.depth ?? 0) > 0) { window.history.back(); return; }
     const from = routeRef.current;
     const to = parentOf(from);
     backOut(from, to);
     const patch: Partial<ViewState> | undefined = from.screen === "items" && to.screen === "feeds" ? { feedId: 0 } : undefined;
     if (patch) store.navigate(patch, { history: "none" });
     const target = patch ? { ...store.view, ...patch } : store.view;
-    window.history.replaceState({ fever: { view: target, route: to, depth: 0 } }, "", hrefFor(target, to));
+    writeFeverHistory("replace", { view: target, route: to, depth: 0 }, hrefFor(target, to));
     setRoute(to);
     if (to.screen === "groups") void store.softReload(false);
   }, [backOut, hrefFor, parentOf, store]);
@@ -126,7 +122,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
   // Browser Back/Forward.
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
-      const entry = (event.state as { fever?: MobileHistory } | null)?.fever;
+      const entry = readFeverHistory(event.state);
       const from = routeRef.current;
       let to: MobileRoute;
       let targetView: Partial<ViewState>;
@@ -231,28 +227,27 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
 
   /* ---------------- article ---------------- */
 
-  // A result for another item reads as "not loaded yet".
-  const routeStandalone = standalone?.itemId === route.itemId ? standalone : null;
+  const routeStandalone = store.article.itemId === route.itemId ? store.article : null;
   const articleItem = useMemo(() => {
     if (route.screen !== "article" && route.screen !== "webview") return null;
-    return findItem(list.items, list.links, route.itemId) ?? routeStandalone?.item ?? null;
+    return findItem(list.items, list.links, route.itemId, routeStandalone?.item) ?? null;
   }, [list.items, list.links, route.itemId, route.screen, routeStandalone]);
 
-  // Deep link to an article that is not in the loaded list. The list and the
-  // earlier result are read when the route, loading state or retry count
-  // changes; a list update alone does not start a request.
-  const hasArticle = useEffectEvent((itemId: number) => (
-    Boolean(findItem(list.items, list.links, itemId)) || standalone?.item?.id === itemId
-  ));
+  const loadArticle = store.loadArticle;
+  const cancelArticle = store.cancelArticle;
   useEffect(() => {
-    const itemId = route.itemId;
-    if (route.screen !== "article" || !itemId || store.loading || hasArticle(itemId)) return;
-    let cancelled = false;
-    apiGet<ItemDTO>(`/api/items/${itemId}`)
-      .then((item) => { if (!cancelled) setStandalone({ itemId, item, error: null }); })
-      .catch((error) => { if (!cancelled) setStandalone({ itemId, item: null, error: errorMessage(error, "This item could not be loaded.") }); });
-    return () => { cancelled = true; };
-  }, [route.itemId, route.screen, store.loading, standaloneAttempt]);
+    if (route.screen !== "article" || !route.itemId || store.loading) return;
+    void loadArticle(route.itemId);
+    return cancelArticle;
+  }, [route.itemId, route.screen, store.loading, loadArticle, cancelArticle]);
+
+  const replaceArticle = useCallback((itemId: number) => {
+    store.markRead([itemId]);
+    const next = { ...routeRef.current, itemId };
+    writeFeverHistory("replace", { view: store.view, route: next, depth: readState()?.depth ?? 0 }, hrefFor(store.view, next));
+    setRoute(next);
+    window.scrollTo(0, 0);
+  }, [hrefFor, store]);
 
   const siblings = useMemo(() => {
     if (!articleItem) return [] as number[];
@@ -268,15 +263,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
 
   const stepArticle = useCallback(async (delta: number) => {
     const target = siblings[index + delta];
-    const replace = (itemId: number) => {
-      store.markRead([itemId]);
-      const next = { ...routeRef.current, itemId };
-      const current = readState();
-      window.history.replaceState({ fever: { view: store.view, route: next, depth: current?.depth ?? 0 } }, "", hrefFor(store.view, next));
-      setRoute(next);
-      window.scrollTo(0, 0);
-    };
-    if (target) { replace(target); return; }
+    if (target) { replaceArticle(target); return; }
     if (delta > 0 && list.hasMore && view.section !== "hot") {
       setNextPending(true);
       const before = { from: list.items.length, key: currentKey, itemId: routeRef.current.itemId };
@@ -287,7 +274,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
       // The list state updates asynchronously; read the next ID on the following render.
       pendingNextFrom.current = before;
     }
-  }, [currentKey, hrefFor, index, list.hasMore, list.items.length, siblings, store, view.section]);
+  }, [currentKey, index, list.hasMore, list.items.length, replaceArticle, siblings, store, view.section]);
 
   useEffect(() => {
     const pending = pendingNextFrom.current;
@@ -302,15 +289,10 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
       pendingNextFrom.current = null;
       const next = list.items[from];
       if (next) {
-        store.markRead([next.id]);
-        const target = { ...routeRef.current, itemId: next.id };
-        const current = readState();
-        window.history.replaceState({ fever: { view: store.view, route: target, depth: current?.depth ?? 0 } }, "", hrefFor(store.view, target));
-        setRoute(target);
-        window.scrollTo(0, 0);
+        replaceArticle(next.id);
       }
     }
-  }, [currentKey, hrefFor, list.items, route.itemId, route.screen, store]);
+  }, [currentKey, list.items, replaceArticle, route.itemId, route.screen]);
 
   /* ---------------- titles ---------------- */
 
@@ -359,7 +341,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
   let screen: React.ReactNode;
   switch (route.screen) {
     case "feeds":
-      screen = <FeedsScreen data={data} view={view} items={list.items} title={view.section === "search" ? `“${view.search}”` : scopeName} titleClass={scopeClass} onBack={goBack} onFeed={loadFeed} />;
+      screen = <FeedsScreen data={data} view={view} title={view.section === "search" ? `“${view.search}”` : scopeName} titleClass={scopeClass} onBack={goBack} onFeed={loadFeed} />;
       break;
     case "items":
       screen = (
@@ -385,7 +367,7 @@ export function MobileReader({ store, ctl, openManagement, initialRoute, setting
             <div className="box message" role={routeStandalone?.error ? "alert" : "status"}>
               <p>{routeStandalone?.error ?? "Loading…"}</p>
               {routeStandalone?.error ? (
-                <button type="button" className="btn" onClick={() => { setStandalone(null); setStandaloneAttempt((count) => count + 1); }}>Try again</button>
+                <button type="button" className="btn" onClick={() => { void store.loadArticle(route.itemId, true); }}>Try again</button>
               ) : null}
             </div>
           </div>
