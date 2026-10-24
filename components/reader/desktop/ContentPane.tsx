@@ -257,7 +257,7 @@ export function EmptyState({ ctl, data, view, onManage, onFocusSearch }: {
         }
         return <EmptyMessage>There are no items in this feed. It may not have been updated in the past {data.preferences.itemExpiration} weeks. <TextButton onClick={() => ctl.refreshFeed(feed.id)}>Refresh feed</TextButton></EmptyMessage>;
       }
-      if (scopeFeeds(data, view, []).length > 0) {
+      if (scopeFeeds(data, view).length > 0) {
         return <EmptyMessage>There are no items in this group. <TextButton onClick={() => ctl.refreshGroup(view.section === "kindling" ? view.groupId : 0)}>Refresh group</TextButton></EmptyMessage>;
       }
       return <EmptyMessage>There are no feeds in this {view.section === "sparks" ? "section" : "group"}. <TextButton onClick={() => onManage("add-feed")}>New feed…</TextButton></EmptyMessage>;
