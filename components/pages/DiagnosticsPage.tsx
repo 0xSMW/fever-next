@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, appHref, command } from "@/lib/client/api";
-import { describeError, isSessionError, type DescribedError } from "./api-errors";
+import { describeError, isSessionError, type DescribedError } from "@/lib/client/errors";
 import { PageShell } from "./PageShell";
 import { SessionGate } from "./SessionGate";
 import { ErrorNotice, Loading, Notice } from "./Status";
