@@ -7,7 +7,8 @@ import { getCheckedSessionEpoch } from "../auth/owner";
 import { DomainError } from "../validation";
 
 export const BLACKLIST_VERSION = 1;
-export const BLACKLIST_LIMITS = Object.freeze({ bytes: 65_536, rules: 512, patternBytes: 2_048, urlBytes: 65_536 });
+export { BLACKLIST_LIMITS } from "../blacklist-rules";
+import { BLACKLIST_LIMITS, tokenizeBlacklist, ruleProblem } from "../blacklist-rules";
 
 export interface BlacklistRule {
   position: number;
@@ -45,27 +46,24 @@ export function compileBlacklist(raw: string): CompiledBlacklist {
   if (Buffer.byteLength(raw, "utf8") > BLACKLIST_LIMITS.bytes) {
     throw new BlacklistValidationError([{ position: 0, raw: "", message: "Blacklist exceeds 64 KiB" }]);
   }
-  const tokens = raw.split(/[\t\n\r\f\v ]+/).filter((token) => token !== "" && token !== "0");
+  const tokens = tokenizeBlacklist(raw);
   if (tokens.length > BLACKLIST_LIMITS.rules) {
     throw new BlacklistValidationError([{ position: BLACKLIST_LIMITS.rules, raw: "", message: "Blacklist exceeds 512 rules" }]);
   }
   const rules: BlacklistRule[] = [];
   const issues: BlacklistIssue[] = [];
   const matchers: Array<(url: string) => boolean> = [];
-  tokens.forEach((token, position) => {
-    const kind = token.startsWith("#") ? "regex" : token.startsWith("domain:") ? "domain" : "exact";
-    const pattern = kind === "regex" ? token.replace(/#/g, "") : kind === "domain" ? token.slice(7) : token;
-    const rule: BlacklistRule = { position, kind, raw: token, pattern, enabled: true, compiled: false, error: null };
+  tokens.forEach((token) => {
+    const { kind, pattern, position, raw } = token;
+    const rule: BlacklistRule = { position, kind, raw, pattern, enabled: true, compiled: false, error: null };
     try {
-      if (Buffer.byteLength(pattern, "utf8") > BLACKLIST_LIMITS.patternBytes) throw new Error("Rule exceeds 2 KiB");
+      const problem = ruleProblem(token);
+      if (problem) throw new Error(problem);
       if (kind === "regex") {
         const regex = RE2JS.compile(pattern, RE2JS.CASE_INSENSITIVE);
         matchers.push((url) => regex.matcher(url).find());
       } else if (kind === "domain") {
         const domain = legacyLower(pattern).replace(/\.$/, "");
-        if (!domain || domain.length > 253 || !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(domain) || domain.includes("..")) {
-          throw new Error("domain: requires a hostname without a scheme, path, port, or wildcard");
-        }
         matchers.push((url) => {
           try {
             const parsed = new URL(url);
@@ -83,7 +81,7 @@ export function compileBlacklist(raw: string): CompiledBlacklist {
     } catch (error) {
       rule.enabled = false;
       rule.error = error instanceof Error ? error.message : "Unsupported regular expression";
-      issues.push({ position, raw: token, message: rule.error });
+      issues.push({ position, raw, message: rule.error });
     }
     rules.push(rule);
   });
