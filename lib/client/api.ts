@@ -9,7 +9,7 @@
  * - A 401 also dispatches the "fever:session-expired" window event so the
  *   reader can show its explicit expired-session state.
  */
-import type { ApiError, CommandAction, SessionDTO } from "@/lib/contracts";
+import type { ApiError, CommandAction, CommandPayload, CommandResult, SessionDTO } from "@/lib/contracts";
 
 export const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/+$/, "");
 export const SESSION_EXPIRED_EVENT = "fever:session-expired";
@@ -171,6 +171,6 @@ export async function apiPost<T>(path: string, body: unknown, options: RequestOp
   return parse<T>(response);
 }
 
-export function command(action: CommandAction, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return apiPost<Record<string, unknown>>("/api/commands", { action, payload });
+export function command<A extends CommandAction>(action: A, payload: CommandPayload<A>): Promise<CommandResult<A>> {
+  return apiPost<CommandResult<A>>("/api/commands", { action, payload });
 }
