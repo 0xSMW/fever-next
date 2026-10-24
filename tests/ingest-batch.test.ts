@@ -1,7 +1,8 @@
+import { createRefreshHandler } from '../lib/integrations/scheduled-refresh';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { BatchConfigurationError, createRefreshHandler, requireBatchPoolCapacity, runRefreshBatch, type BatchDependencies } from '../worker/batch';
+import { BatchConfigurationError, requireBatchPoolCapacity, runRefreshBatch, type BatchDependencies } from '../worker/batch';
 import { LostLeaseError, type FeedLease, type JobLease } from '../lib/jobs/types';
 import { GET, runtime, maxDuration } from '../app/api/internal/refresh/route';
 
@@ -159,4 +160,17 @@ test('invalid budgets reject before acquiring a database connection', async () =
   const { deps, events } = fixture();
   for (const budgetMs of [0, -1, 240_001, 1.5]) await assert.rejects(runRefreshBatch({ budgetMs }, deps), RangeError);
   assert.deepEqual(events, []);
+});
+
+
+test('finite batch retains completed feed counts when cancellation interrupts a later feed', async () => {
+  const { deps } = fixture();
+  const controller = new AbortController();
+  let refreshed = 0;
+  deps.claimFeed = async () => feed;
+  deps.refresh = async () => {
+    if (++refreshed === 2) { controller.abort(); throw new LostLeaseError(); }
+  };
+  const result = await runRefreshBatch({ signal: controller.signal }, deps);
+  assert.deepEqual(result, { status: 'cancelled', jobs: 1, feeds: 1 });
 });
