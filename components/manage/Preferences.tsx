@@ -1,14 +1,16 @@
 "use client";
+import { ITEM_ALLOWS_LABELS, SORT_ORDER_LABELS } from "../forms/DisplayOverrides";
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { SESSION_EXPIRED_EVENT, appHref, command, getSession, resetSession } from "@/lib/client/api";
+import { SESSION_EXPIRED_EVENT, apiGet, appHref, command, getSession, resetSession } from "@/lib/client/api";
 import { COMMANDS, CORE_LETTERS } from "@/lib/client/commands";
 import type { Preferences, ReaderView, SharingService } from "@/lib/contracts";
+import { TabPanel, type TabSpec } from "../forms/Tabs";
 import {
-  Button, Checkbox, EXPIRATION_WEEKS, ErrorBanner, Footer, Frame, HelpTip, ITEM_ALLOWS_LABELS, RadioGroup, Row,
-  SORT_ORDER_LABELS, StatusBanner, TabPanel, TextField, fieldError, localError, useAction, usePanel,
-  type FormError, type TabSpec,
+  Button, Checkbox, EXPIRATION_WEEKS, ErrorBanner, Footer, Frame, HelpTip, RadioGroup, Row, StatusBanner, TextField, fieldError, localError, useAction, usePanel,
+  type FormError,
 } from "./shared";
+import type { CommandPayload, PreferencesSaveInput } from "@/lib/command-contract";
 import type { PreferenceTab } from "./types";
 
 /* ------------------------------------------------------------------ shortcuts */
@@ -263,7 +265,7 @@ function LoginSection() {
     if (!current) fields.currentPassword = "Enter your current password to confirm this change.";
     const invalid = localError(fields);
     if (invalid) { action.setError(invalid); return; }
-    const payload: Record<string, unknown> = { currentPassword: current };
+    const payload: CommandPayload<"account.update"> = { currentPassword: current };
     if (emailChanged) payload.email = email.trim();
     if (password) payload.password = password;
     const result = await action.run(() => command("account.update", payload));
@@ -374,8 +376,9 @@ export function PreferencesForm({ view, initialTab = "behavior" }: { view: Reade
   const panel = usePanel();
   const action = useAction();
   const [tab, setTab] = useState<PreferenceTab>(initialTab);
-  const [draft, setDraft] = useState<Draft>(() => toDraft(view.preferences));
-  const [services, setServices] = useState<ServiceRow[]>(() => (view.preferences.services ?? []).map(toRow));
+  const [baseline, setBaseline] = useState(view.preferences);
+  const [draft, setDraft] = useState<Draft>(() => toDraft(baseline));
+  const [services, setServices] = useState<ServiceRow[]>(() => (baseline.services ?? []).map(toRow));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }));
 
   const invalidTabs = useMemo((): Set<PreferenceTab> => {
@@ -414,7 +417,9 @@ export function PreferencesForm({ view, initialTab = "behavior" }: { view: Reade
       setTab(tabForField(first));
       return;
     }
-    const payload: Record<string, unknown> = {
+    if (refreshInterval === null || perPage === null || sessionTimeout === null) return;
+    const payload: PreferencesSaveInput = {
+      version: baseline.version,
       ...Object.fromEntries(FLAG_KEYS.map((key) => [key, draft[key]])),
       refreshInterval, perPage, sessionTimeout,
       services: kept.map((row) => ({
@@ -434,6 +439,15 @@ export function PreferencesForm({ view, initialTab = "behavior" }: { view: Reade
     panel.close();
   };
 
+  const reloadPreferences = async () => {
+    const result = await action.run(() => apiGet<ReaderView>("/api/reader?capture=false"));
+    if (!result.ok) return;
+    const preferences = result.value.preferences;
+    setBaseline(preferences);
+    setDraft(toDraft(preferences));
+    setServices(preferences.services.map(toRow));
+  };
+
   const savedRssHref = appHref("/rss/saved");
   const errors = action.error;
 
@@ -444,6 +458,7 @@ export function PreferencesForm({ view, initialTab = "behavior" }: { view: Reade
           extra={tab === "login" ? <span className="fm-muted">Save applies the other tabs. Use Change login for your email and password.</span> : undefined} />
       )}>
       {tab !== "login" && <ErrorBanner error={errors} />}
+      {errors?.code === "CONFLICT" && <p className="fm-hint">Your edits are still here. <Button disabled={action.pending} onClick={reloadPreferences}>Reload current preferences</Button> replaces them with the saved version.</p>}
 
       <TabPanel tab="behavior" active={tab === "behavior"}>
         <fieldset className="fm-group">
