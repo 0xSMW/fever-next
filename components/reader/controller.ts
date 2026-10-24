@@ -6,7 +6,8 @@ import { HOT_RANGE_OPTIONS, HOT_START_OPTIONS, feedTitle, groupTitle } from "@/l
 import { htmlToText } from "@/lib/client/safe-html";
 import { prepareService } from "@/lib/client/services";
 import { openExternal } from "./external";
-import { groupUnread } from "./model";
+import type { PreferencesSaveInput } from "@/lib/command-contract";
+import { groupUnread, kindlingUnread, sparksUnread } from "./model";
 import type { ManagementKind } from "@/components/manage/types";
 import type { MenuItem } from "./ui";
 import type { ReadScope, ReaderStore } from "./useReader";
@@ -212,7 +213,7 @@ export function useReaderController({ store, openManagement, openDialog, signOut
 
   /* ---------------- menus ---------------- */
 
-  const preferencesSave = useCallback((patch: Record<string, unknown>, success?: string) => store.commandThenReload("preferences.save", patch, success), [store]);
+  const preferencesSave = useCallback((patch: PreferencesSaveInput, success?: string) => store.commandThenReload("preferences.save", patch, success), [store]);
 
   const actionMenu = useCallback((): MenuItem[] => {
     const current = store.view;
@@ -221,7 +222,7 @@ export function useReaderController({ store, openManagement, openDialog, signOut
     let unread = 0;
     if (scope?.scope === "feed") unread = feedById(scope.id)?.unreadCount ?? 0;
     else if (scope?.scope === "group") unread = groupById(scope.id) ? groupUnread(groupById(scope.id)!, feeds) : 0;
-    else if (scope) unread = feeds.reduce((sum, feed) => sum + ((scope.scope === "sparks") === feed.isSpark ? feed.unreadCount : 0), 0);
+    else if (scope) unread = scope.scope === "sparks" ? sparksUnread(feeds) : kindlingUnread(feeds);
     return [
       { label: "Unread most recently read", shortcut: "z", onSelect: () => void store.undoRecentlyRead() },
       { label: `Mark current ${which} as read`, shortcut: "a", disabled: !scope || unread === 0, onSelect: markActiveRead },
@@ -253,7 +254,7 @@ export function useReaderController({ store, openManagement, openDialog, signOut
 
   const groupMenu = useCallback((groupId: number): MenuItem[] => {
     const group = groupById(groupId);
-    const unread = groupId === 0 ? feeds.reduce((sum, feed) => sum + (feed.isSpark ? 0 : feed.unreadCount), 0) : group ? groupUnread(group, feeds) : 0;
+    const unread = groupId === 0 ? kindlingUnread(feeds) : group ? groupUnread(group, feeds) : 0;
     return [
       { label: "Mark group as read", disabled: unread === 0, onSelect: () => void store.markScopeRead(groupId ? { scope: "group", id: groupId } : { scope: "all" }) },
       { label: "Refresh group", onSelect: () => void store.startRefresh(groupId ? { scope: "group", id: groupId } : { scope: "all" }) },
@@ -265,7 +266,7 @@ export function useReaderController({ store, openManagement, openDialog, signOut
   }, [feeds, groupById, openManagement, store]);
 
   const sparksMenu = useCallback((): MenuItem[] => {
-    const unread = feeds.reduce((sum, feed) => sum + (feed.isSpark ? feed.unreadCount : 0), 0);
+    const unread = sparksUnread(feeds);
     return [
       { label: "Mark Sparks as read", disabled: unread === 0, onSelect: () => void store.markScopeRead({ scope: "sparks" }) },
       { label: "Edit…", shortcut: "i", onSelect: () => openManagement("edit-sparks") },
