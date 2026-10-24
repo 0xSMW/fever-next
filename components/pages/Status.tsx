@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { DescribedError } from "./api-errors";
+import type { DescribedError } from "@/lib/client/errors";
 
 export function Loading({ children = "Loading…" }: { children?: ReactNode }) {
   return (
