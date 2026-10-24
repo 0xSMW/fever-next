@@ -1,5 +1,6 @@
 /** Shared browser/server wire contracts. Never import database or secrets here. */
-export type Section = "hot" | "kindling" | "saved" | "sparks" | "search";
+import type { Section } from "./reader-policy";
+export type { Section } from "./reader-policy";
 export type DisplayOverride = -1 | 0 | 1 | 2;
 export interface DisplayOptions {
   itemExcerpts: number;
@@ -18,6 +19,7 @@ export interface Preferences {
   autoUpdate: boolean; toggleClick: boolean; anonymize: boolean; sessionTimeout: number;
   blacklist: string; share: boolean; shareProtected: boolean; services: SharingService[];
 }
+export type PersistedPreferences = Preferences & { version: number };
 export interface ViewState {
   section: Section; previous: Section; groupId: number; feedId: number;
   search: string; hasFocus: string; showFeeds: boolean; showRead: boolean;
@@ -46,7 +48,7 @@ export interface HotLinkDTO {
 }
 export interface ReaderQuery extends Partial<ViewState> { page?: number; cursor?: string; deviceKey?: string; }
 export interface ReaderView {
-  view: ViewState; preferences: Preferences; groups: GroupDTO[]; feeds: FeedDTO[];
+  view: ViewState; preferences: PersistedPreferences; groups: GroupDTO[]; feeds: FeedDTO[];
   items: ItemDTO[]; links: HotLinkDTO[]; totalItems: number; unreadCount: number;
   savedCount: number; page: number; hasMore: boolean; nextCursor?: string | null;
   renderedAt: number; lastRefreshedAt: number; lastSessionAt: number;
@@ -64,19 +66,16 @@ export interface SessionDTO {
   configured: boolean; authenticated: boolean; csrfToken: string;
   owner?: { id: number; email: string };
 }
-export interface FeedInput extends Partial<DisplayOptions> {
-  id?: number; url: string; title?: string; groupIds?: number[]; isSpark?: boolean;
+export interface CreateFeedInput extends Partial<DisplayOptions> {
+  url: string; title?: string; groupIds?: number[]; isSpark?: boolean;
   preventsHotlinking?: boolean; username?: string; password?: string; clearCredentials?: boolean;
 }
-export interface GroupInput extends Partial<DisplayOptions> { id?: number; title: string; feedIds?: number[]; }
+export type UpdateFeedInput = Partial<CreateFeedInput> & { id: number };
+export type FeedInput = CreateFeedInput;
+export interface CreateGroupInput extends Partial<DisplayOptions> { title: string; feedIds?: number[]; }
+export type UpdateGroupInput = CreateGroupInput & { id: number };
+export type GroupInput = CreateGroupInput;
 export interface FeedCandidate { url: string; title: string; type: string; subscribed: boolean; guessed: boolean; }
 export interface ImportResult { feedsAdded: number; groupsAdded: number; membershipsAdded: number; skipped: number; warnings: string[]; }
-export type CommandAction =
-  | "feed.create" | "feed.update" | "feed.delete" | "feed.authenticate"
-  | "group.create" | "group.update" | "group.delete" | "membership.add" | "membership.remove"
-  | "sparks.update" | "sparks.delete" | "items.read" | "items.unread" | "items.save" | "items.unsave"
-  | "scope.read" | "items.undo" | "preferences.save" | "view.save" | "blacklist.save"
-  | "refresh.start" | "refresh.cancel" | "favicons.clear" | "maintenance.preview" | "maintenance.execute"
-  | "account.update";
-export interface CommandRequest { action: CommandAction; payload: Record<string, unknown>; }
+export type { CommandAction, CommandRequest, CommandPayload, CommandResult } from "./command-contract";
 export interface ApiError { error: string; code?: string; fields?: Record<string, string>; }
