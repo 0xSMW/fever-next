@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { apiPost, appHref } from "@/lib/client/api";
 import { useIsClient } from "@/lib/client/hydration";
-import { describeError } from "./api-errors";
+import { describeError } from "@/lib/client/errors";
 import { PageShell } from "./PageShell";
 import { PasswordFields, passwordErrors } from "./PasswordFields";
 
