@@ -1,10 +1,10 @@
 "use client";
+import { useReaderData } from "@/lib/client/useReaderData";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReaderView } from "@/lib/contracts";
+import { useEffect, useRef, useState } from "react";
 import { ManagementDialog } from "@/components/manage/ManagementDialog";
-import { apiGet, appHref, command } from "@/lib/client/api";
-import { describeError, isSessionError, type DescribedError } from "./api-errors";
+import { appHref, command } from "@/lib/client/api";
+import { describeError, isSessionError, type DescribedError } from "@/lib/client/errors";
 import { PageShell } from "./PageShell";
 import { SessionGate } from "./SessionGate";
 import { ErrorNotice, Loading, Notice } from "./Status";
@@ -41,8 +41,7 @@ const OPERATIONS: Array<{ operation: Operation; title: string; description: stri
 ];
 
 function MaintenanceContent({ initial }: { initial: MaintenanceTarget | null }) {
-  const [view, setView] = useState<ReaderView | null>(null);
-  const [error, setError] = useState<DescribedError | null>(null);
+  const { view, error, reload: load } = useReaderData();
   // A legacy ?flush, ?empty, ?unorphan or ?uninstall link opens on that operation's
   // review step. Nothing runs until the dialog's password and typed confirmation.
   const [open, setOpen] = useState<null | { kind: "maintenance"; operation: Operation } | { kind: "export" }>(
@@ -54,12 +53,6 @@ function MaintenanceContent({ initial }: { initial: MaintenanceTarget | null }) 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const faviconsRef = useRef<HTMLElement | null>(null);
 
-  const fetchView = useCallback(() => {
-    apiGet<ReaderView>("/api/reader?capture=false").then(setView, (reason: unknown) => setError(describeError(reason, "Current totals could not be loaded.")));
-  }, []);
-  useEffect(fetchView, [fetchView]);
-  const load = () => { setError(null); fetchView(); };
-
   useEffect(() => {
     if (initial === "favicons") faviconsRef.current?.scrollIntoView({ block: "start" });
   }, [initial]);
@@ -70,12 +63,10 @@ function MaintenanceContent({ initial }: { initial: MaintenanceTarget | null }) 
     setClearError(null);
     try {
       const result = await command("favicons.clear", {});
-      const cleared = typeof result.cleared === "number" ? result.cleared : null;
+      const cleared = result.cleared;
       // The server also queues a favicon-only refresh of every feed.
       const refetch = result.job ? " A refresh of every feed's icon is queued." : " Icons are fetched again on each feed's next refresh.";
-      setChanged(cleared === null
-        ? `The favicon cache was emptied.${refetch}`
-        : `Removed ${cleared.toLocaleString()} cached ${cleared === 1 ? "favicon" : "favicons"}.${refetch}`);
+      setChanged(`Removed ${cleared.toLocaleString()} cached ${cleared === 1 ? "favicon" : "favicons"}.${refetch}`);
     } catch (reason) {
       setClearError(describeError(reason, "The favicon cache could not be emptied."));
     } finally {
